@@ -1,0 +1,1002 @@
+#' @export
+Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
+                               p_type, p_param, lambda_seq, lambda_length, min_lambda_ratio = 0.01,
+                               mu2, a, bj_vec, cj_vec, rj_vec,
+                               delta_init, eta_stack_init, mu1_init,
+                               tol = 10^(-6), max_iter = 500, verbose = TRUE, svd_thresh = 10^(-7)){
+    # This function finds the solution path of Logistic_FAR over a sequence of lambda
+    # It will use within-group orthonormalization
+    # Args: y_vec: response vector, 0 for control, 1 for case.
+    #              n = length(y_vec) is the number of observations
+    #       x_mat: covariate matrix, consists of two parts.
+    #              dim(x_mat) = (n, h + p * kn)
+    #              First h columns are for demographical covariates(can include a intercept term)
+    #              Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+    #       h, kn, p: dimension information for the dataset
+    #       p_type: character, type of the penalty term
+    #       p_param: numerical vector for the penalty function
+    #                p_param[1] stores the lambda value
+    #       lambda_seq: a sequence of lambda, along which the solution path is searched
+    #       lambda_length: length of the lambda sequence
+    #       min_lambda_ratio: min(lambda_seq) / max(lambda_seq)
+    #       mu2: quadratic term in the ADMM algorithm
+    #       a, bj_vec, cj_vec, rj_vec: parameters in the algorithm
+    #       delta_init, eta_stack_init, mu1_init: initial values for the algorithm
+    #       tol: tolerence for the algorithm
+    #       max_iter: maximum number of iterations
+    #       verbose: logical, should the function print information during the computation
+    #       svd_thresh: a small value for threashing the singular value vectors.
+    #
+    # Return:
+
+    ######----- preprocess the data ------######
+    y_vec <- as.vector(y_vec)
+    x_mat <- as.matrix(x_mat)
+    n <- length(y_vec)    # number of observations
+    if(n != nrow(x_mat)){
+        stop("x_mat and y_vec don't have the same number of observations")
+    }
+    if((h + kn * p) != ncol(x_mat)){
+        stop("supplied h, kn or p don't match with column number of x_mat!")
+    }
+
+    ###--- check a, bj, cj and rj_vec ---###
+    if(length(bj_vec) == 1){
+        bj_vec <- rep(bj_vec, p)
+    }else{
+        if(length(bj_vec) != p){
+            stop("length of bj_vec does not match p!")
+        }
+    }
+    if(length(cj_vec) == 1){
+        cj_vec <- rep(cj_vec, p)
+    }else{
+        if(length(cj_vec) != p){
+            stop("length of cj_vec does not match p!")
+        }
+    }
+    if(length(rj_vec) == 1){
+        rj_vec <- rep(rj_vec, p + h)
+    }else{
+        if(length(rj_vec) != (p + h)){
+            stop("length of rj_vec does not match (p + h)!")
+        }
+    }
+
+    ###--- within-group orthonormalization ---###
+    print("start within-group orthonormalization!")
+    # back-up the original x_mat
+    x_mat_bak <- x_mat
+    svd_res <- Within_Group_Standardize(x_mat = x_mat_bak,
+                                        h = h, kn = kn, p = p,
+                                        a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                        mu2 = mu2,
+                                        svd_thresh = svd_thresh)
+    x_mat <- svd_res$x_mat
+    t_mat_stack <- svd_res$t_mat_stack    # transformation matrix, stacked in row.
+    svd_vec_stack <- svd_res$svd_vec_stack    # singular values for each grouped covariate matrix, stacked in row
+    start_id_vec <- svd_res$start_id_vec    # starting index for each orthonormalized group
+                                            # length(start_id_vec) = p + 1
+                                            # last entry is the end index of the last orthogonormalized group(column number of t_mat_stack) + 1
+    relax_vec <- svd_res$relax_vec    # relaxation term for the quadratic part in the algorithm
+
+    # # transformation matrix, stacked in row.
+    # # initialize it with kn * p columns, but the real columns might be less
+    # t_mat_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    # # singular values for each grouped covariate matrix, stacked in row
+    # # initialize with kn * p entries, but the real entries might be less
+    # svd_vec_stack <- rep(0, kn * p)
+    # # starting index for each orthonormalized group
+    # # last entry is the end index of the last orthogonormalized group(column number of t_mat_stack) + 1
+    # start_id_vec <- 1 : (p + 1)
+    # # relaxation term for the quadratic part in the algorithm
+    # relax_vec <- rep(1, p)
+    #
+    # start_idx_current <- 1
+    # for(i in 1 : p){
+    #     start_idx <- 1 + h + kn * (i - 1)
+    #     stop_idx <- kn + h + kn * (i - 1)
+    #     svd_res <- svd(x_mat_bak[, start_idx : stop_idx, drop = FALSE])
+    #     pick_id <- which(svd_res$d > svd_thresh)
+    #     if(length(pick_id) == 0){
+    #         stop(paste("Group ", i, " has 0-rank!", sep = ""))
+    #     }else{
+    #         if(length(pick_id) < kn){
+    #             print(paste("Group ", i, " has rank = ", length(pick_id), ", not full column rank!", sep = ""))
+    #         }
+    #         u_pick <- svd_res$u[, pick_id, drop = FALSE]
+    #         d_pick <- svd_res$d[pick_id]
+    #         v_pick <- svd_res$v[, pick_id, drop = FALSE]
+    #         # update x_mat
+    #         x_mat[, (1 : length(pick_id)) + start_idx_current + h - 1] <- sqrt(a) * u_pick
+    #
+    #         # update t_mat
+    #         t_mat_stack[, (1 : length(pick_id)) + start_idx_current - 1] <- sqrt(a) * v_pick %*% diag(1 / d_pick, nrow = length(pick_id))
+    #
+    #         # update svd_vec
+    #         svd_vec_stack[(1 : length(pick_id)) + start_idx_current - 1] <- d_pick
+    #     }
+    #     # update start_idx_current
+    #     start_id_vec[i] <- start_idx_current
+    #     start_idx_current <- start_idx_current + length(pick_id)
+    #
+    #     # update relax scalar k_{j_0}
+    #     # 10^{-6} is a small safe-guard constant
+    #     relax_vec[i] <- 0.25 + rj_vec[h + i] + mu2 * a / (min(d_pick) ^ 2) * (1 + 10^{-6})
+    # }
+    #
+    # # remove unnecessary columns
+    # if(start_idx_current < p * kn + 1){
+    #     print(paste("Final start_id_current = ", start_idx_current, " < p * kn + 1, need to shrink the datamatrix!", sep = ""))
+    #     x_mat <- x_mat[, 1 : (start_idx_current - 1 + h), drop = FALSE]
+    #     t_mat_stack <- t_mat_stack[, 1 : (start_idx_current - 1), drop = FALSE]
+    # }
+    # start_id_vec[p + 1] <- start_idx_current
+    print("done!")
+
+    # print some information
+    if(verbose){
+        print("Relax vector is: ")
+        print(relax_vec)
+        print("SVD vector is:")
+        print(svd_vec_stack)
+    }
+
+
+
+    # some variables needed for updating demographical part
+    delta_mat <- x_mat[, 1 : h, drop = FALSE]
+    hd_mat <- 0.25 * t(delta_mat) %*% delta_mat
+    hd_inv <- solve(hd_mat + diag(a * rj_vec[1 : h]), nrow = h)
+
+    # functional(grouped) part
+    # theta_mat <- x_mat[, (1 : start_id_vec[p + 1]) + h, drop = FALSE]
+
+
+    ###--- prepare lambda sequence and initial values for the algorithm ---###
+    if(missing(lambda_seq)){
+        print("lambda sequence is missing, using default method to determine it!")
+        if(missing(lambda_length) || missing(min_lambda_ratio)){
+            stop("Both lambda_length and min_lambda_ratio must be provided for computing the lambda sequence!")
+        }else{
+            print(paste("lambda_length = ", lambda_length, sep = ""))
+            print(paste("min_lambda_ratio = ", min_lambda_ratio, sep = ""))
+
+            # find lambda_max
+            lam_max <- Get_Lambda_Max(y_vec = y_vec, x_mat = x_mat,
+                                      h = h, kn = kn, p = p,
+                                      a = a, bj_vec = bj_vec, cj_vec = cj_vec,
+                                      start_id_vec = start_id_vec)
+            ### --- get lambda_max, now putted into a stand alone function ---###
+            # conduct the ordinary logistic regressoin
+            # logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            # pi_fit <- exp(logit_fit$fitted.values) / (1 + exp(logit_fit$fitted.values))
+            # alpha_vec <- rep(0, p)
+            # for(i in 1 : p){
+            #     start_ind <- start_id_vec[i]
+            #     stop_ind <- start_id_vec[i + 1] - 1
+            #     theta_i_mat <- x_mat[, (start_ind : stop_ind) + h, drop = FALSE]
+            #     can_vec <- t(theta_i_mat) %*% (y_vec - pi_fit) / a
+            #     # new version of relax vector, where penalty kernel is \eta
+            #     alpha_vec[i] <- sqrt(t(can_vec) %*% can_vec) / bj_vec[i] / cj_vec[i]
+            # }
+            # rm(theta_i_mat)
+            # rm(can_vec)
+            # lam_max = max(alpha_vec)
+            # rm(alpha_vec)
+
+            lam_min = lam_max * min_lambda_ratio
+            lambda_seq <- exp(seq(from = log(lam_max), to = log(lam_min), length.out = lambda_length))
+
+            print("Overwrite and use default value for delta_init, eta_init and mu1_init!")
+            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            delta_init <- logit_fit$coefficients
+            eta_stack_init <- rep(0, length(svd_vec_stack))
+            mu1_init <- rep(0, kn)
+        }
+    }else{
+        # make sure lambda_seq is in order from big to small
+        print("lambda sequence is provided")
+        lambda_length <- length(lambda_seq)
+        lambda_seq <- sort(abs(lambda_seq), decreasing = TRUE)
+
+        # check initial values for the algorithm
+        if(missing(delta_init)){
+            print("delta_init missing, use default settings")
+            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            delta_init <- logit_fit$coefficients
+        }else{
+
+        }
+
+        if(missing(eta_stack_init)){
+            print("eta_stack_init missing, use default settings")
+            eta_stack_init <- rep(0, length(svd_vec_stack))
+        }else{
+            if(length(eta_stack_init) != length(svd_vec_stack)){
+                print("length(eta_stack_init) != length(svd_vec_stack). Results might be wrong!")
+                eta_stack_init <- eta_stack_init[1 : length(svd_vec_stack)]
+            }
+        }
+
+        if(missing(mu1_init)){
+            print("mu1_init missing, use default settings")
+            mu1_init <- rep(0, kn)
+        }
+    }
+
+
+    ######------ main algorithm ------######
+    delta_path <- matrix(0, nrow = lambda_length, ncol = h)
+    eta_stack_path <- matrix(0, nrow = lambda_length, ncol = ncol(t_mat_stack))
+    mu1_path <- matrix(0, nrow = lambda_length, ncol = kn)
+    iter_num_path <- rep(0, lambda_length)
+    converge_path <- rep(0, lambda_length)
+    loss_drop_path <- rep(0, lambda_length)
+
+    for(lam_ind in 1 : lambda_length){
+        # update lambda
+        lambda <- lambda_seq[lam_ind]
+        p_param[1] <- lambda
+
+        # conduct the algorithm
+        FAR_res <- Logistic_FAR_Ortho_Solver_Core(y_vec = y_vec, x_mat = x_mat, h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+                                                  mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, tol = tol, max_iter = max_iter,
+                                                  relax_vec = relax_vec,
+                                                  t_mat_stack = t_mat_stack,
+                                                  svd_vec_stack = svd_vec_stack,
+                                                  start_id_vec = start_id_vec - 1, # index in Cpp starts from 0
+                                                  hd_mat = hd_mat, hd_inv = hd_inv,
+                                                  delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init)
+        # save the result
+        delta_path[lam_ind, ] <- FAR_res$delta
+        eta_stack_path[lam_ind, ] <- FAR_res$eta_stack
+        mu1_path[lam_ind, ] <- FAR_res$mu1_vec
+        iter_num_path[lam_ind] <- FAR_res$iter_num
+        converge_path[lam_ind] <- FAR_res$converge
+        loss_drop_path[lam_ind] <- FAR_res$loss_drop
+
+        # update initial values for the next run
+        delta_init <- FAR_res$delta
+        eta_stack_init <- FAR_res$eta_stack
+        mu1_init <- FAR_res$mu1_vec
+        # print some information
+        print(paste("Lambda ID = ", lam_ind, ", lambda = ", lambda, " finished!", sep = ""))
+    }
+
+    ###--- convert the result to original form ---###
+    beta_stack_path <- matrix(0, nrow = lambda_length, ncol = p * kn)
+    for(i in 1 : p){
+        start_ind <- start_id_vec[i]
+        stop_ind <- start_id_vec[i + 1] - 1
+        eta_j_mat <- eta_stack_path[, start_ind : stop_ind, drop = FALSE]
+        t_mat <- t_mat_stack[, start_ind : stop_ind, drop = FALSE]
+        beta_stack_path[, (1 : kn) + (i - 1) * kn] <- t(t_mat %*% t(eta_j_mat))
+    }
+
+    # return the result
+    res <- list(delta_path = delta_path,
+                eta_stack_path = beta_stack_path,
+                mu_1_path = mu1_path,
+                iter_num_path = iter_num_path,
+                converge_path = converge_path,
+                loss_drop_path = loss_drop_path,
+                lambda_seq = lambda_seq)
+    return(res)
+}
+
+#' @export
+Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
+                                  p_type, p_param,
+                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
+                                  mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                  svd_thresh = 10^(-6), relax_vec,
+                                  delta_init, eta_stack_init, mu_1_init,
+                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
+    # This function finds the solution path of Logistic_FAR over a sequence of lambda
+    # It uses cross-validation (based on the largest loglikelihood on the test sets)
+    #  to find the best lambda in that lambda sequence
+    # Note: x_mat is the basis coefficient representation version,
+    #         NOT the original functional version
+    # Args: p_type: an character variable indicating different types of the penalty
+    #               "L": lasso;
+    #               "S": SCAD;
+    #               "M": MCP
+    #       p_param: numerical parameters for the penalty function
+    #                p_param[1] is always the lambda
+    #                In this solution path function, p_param[1] will be provided by
+    #                lambda_seq
+    #       a: numerical scalar, the 1st part of loss function is 1 / a * (-loglik)
+    #       bj_vec: numerical vector for the penalty kernel, length(bj_vec) = p
+    #               or a scalar, then the function expands it to a vector
+    #               the penalty term is penalty_{lambda}(bj * \|eta\|)
+    #       cj_vec: numerical vector for the penalty kernel, length(cj_vec) = p
+    #               or a scalar, then the function expands it to a vector
+    #               the penalty term is cj * penalty_{lambda}(bj * \|eta\|)
+    #       rj_vec: numerical vector for the regularizer, length(rj_vec) = h + p
+    #               or a scalar, then the function expands it to a vector
+    #
+    # Return:
+
+    ######------------ prepare the data ------------
+    y_vec <- as.vector(y_vec)
+    x_mat <- as.matrix(x_mat)
+    n <- length(y_vec)    # number of observations
+    if(n != nrow(x_mat)){
+        stop("x_mat and y_vec don't have the same number of observations")
+    }
+    if((h + kn * p) != ncol(x_mat)){
+        stop("supplied h, kn or p don't match with column number of x_mat!")
+    }
+
+    ###--- check a, bj, cj and rj_vec ---###
+    if(length(bj_vec) == 1){
+        bj_vec <- rep(bj_vec, p)
+    }else{
+        if(length(bj_vec) != p){
+            stop("length of bj_vec does not match p!")
+        }
+    }
+    if(length(cj_vec) == 1){
+        cj_vec <- rep(cj_vec, p)
+    }else{
+        if(length(cj_vec) != p){
+            stop("length of cj_vec does not match p!")
+        }
+    }
+    if(length(rj_vec) == 1){
+        rj_vec <- rep(rj_vec, p + h)
+    }else{
+        if(length(rj_vec) != (p + h)){
+            stop("length of rj_vec does not match (p + h)!")
+        }
+    }
+
+    ###### ------ old version of within-group standardization, might be wrong ------ ######
+    # # standardize those grouped covariates in x_mat
+    # x_mat_bak <- x_mat    # a back up of x_mat
+    # # transformation matrix, stacked in row
+    # t_mat_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    # for(i in 1 : p){
+    #     start_idx <- 1 + h + (i - 1) * kn
+    #     stop_idx <- kn + h + (i - 1) * kn
+    #     svd_res <- svd(x_mat[, start_idx : stop_idx, drop = FALSE], nu = 0)
+    #     t_mat <- sqrt(a) * svd_res$v %*% diag(1 / svd_res$d, nrow = kn)
+    #     t_mat_stack[, (start_idx : stop_idx) - h] <- t_mat
+    #     x_mat[, start_idx : stop_idx] <- x_mat[, start_idx : stop_idx] %*% t_mat
+    # }
+    ###### ------ new version of within-group standardization ------ ######
+    print("start within-group orthonormalization!")
+    # back-up the original x_mat
+    x_mat_bak <- x_mat
+    svd_res <- Within_Group_Standardize(x_mat = x_mat_bak,
+                                        h = h, kn = kn, p = p,
+                                        a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                        mu2 = mu2,
+                                        svd_thresh = svd_thresh)
+    x_mat <- svd_res$x_mat
+    t_mat_stack <- svd_res$t_mat_stack    # transformation matrix, stacked in row.
+    svd_vec_stack <- svd_res$svd_vec_stack    # singular values for each grouped covariate matrix, stacked in row
+    start_id_vec <- svd_res$start_id_vec    # starting index for each orthonormalized group
+    # length(start_id_vec) = p + 1
+    # last entry is the end index of the last orthogonormalized group(column number of t_mat_stack) + 1
+    relax_vec <- svd_res$relax_vec    # relaxation term for the quadratic part in the algorithm
+    print("done!")
+
+    # covariate matrix for non-functional covariates
+    # delta_mat <- x_mat[, 1 : h, drop = FALSE]
+    # if(missing(h_inv)){
+    #   h_mat <- 1 / 4 * t(delta_mat) %*% delta_mat
+    #   h_inv <- solve(h_mat)
+    # }
+
+    # covariate matrices for functional covariates
+    # ind_mat stores the starting and stopping index for each functional covariates
+    #   in x_mat. Each row for one functional covariates.
+    # ind_mat also provides starting and stopping indces in eta_stack_vec, just minus h
+    #   since there's no delta part in eta.
+    ind_mat <- matrix(0, nrow = p, ncol = 2)
+    colnames(ind_mat) <- c("start_ind", "stop_ind")
+    rownames(ind_mat) <- paste("v", 1 : p, sep = "")
+    # ind_mat[, 1] <- (0 : (p - 1)) * kn + 1 + h
+    # ind_mat[, 2] <- (1 : p) * kn + h
+    ind_mat[, 1] <- start_id_vec[1 : p]
+    ind_mat[, 2] <- start_id_vec[2 : (p + 1)] - 1
+
+
+    # if(missing(eta_inv_stack)){
+    #     eta_inv_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    #     for(j in 1 : p){
+    #         stack_start <- (j - 1) * kn + 1
+    #         stack_stop <- j * kn
+    #         x_mat_j <- x_mat[, ind_mat[j, 1] : ind_mat[j, 2], drop = FALSE]
+    #         h_mat_j <- 1 / 4 * t(x_mat_j) %*% x_mat_j
+    #         eta_inv_stack[, stack_start : stack_stop] <- solve(4 * h_mat_j)
+    #     }
+    # }
+
+    if(missing(lambda_seq)){
+        print("lambda sequence is missing, using default method to determine it!")
+
+        if(missing(lambda_length) || missing(min_lambda_ratio)){
+            stop("Both lambda_length and min_lambda_ratio must be provided for computing the lambda sequence!")
+        }else{
+            print(paste("lambda_length = ", lambda_length, sep = ""))
+            print(paste("min_lambda_ratio = ", min_lambda_ratio, sep = ""))
+
+            # find lambda_max
+            lam_max <- Get_Lambda_Max(y_vec = y_vec, x_mat = x_mat,
+                                      h = h, kn = kn, p = p,
+                                      a = a, bj_vec = bj_vec, cj_vec = cj_vec,
+                                      start_id_vec = start_id_vec)
+            ### --- get lambda_max, now putted into a stand alone function ---###
+            # conduct the ordinary logistic regressoin
+            # logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            # pi_fit <- exp(logit_fit$fitted.values) / (1 + exp(logit_fit$fitted.values))
+            # alpha_vec <- rep(0, p)
+            # for(i in 1 : p){
+            #     start_ind <- ind_mat[i, 1]
+            #     stop_ind <- ind_mat[i, 2]
+            #     theta_i_mat <- x_mat[, start_ind : stop_ind, drop = FALSE]
+            #     can_vec <- t(theta_i_mat) %*% (y_vec - pi_fit) / a
+            #     # origin version of relax vector, where penalty kernel is \theta\eta
+            #     # alpha_vec[i] <- sqrt(n * t(can_vec) %*% solve(t(theta_i_mat) %*% theta_i_mat) %*% can_vec)
+            #
+            #     # new version of relax vector, where penalty kernel is \eta
+            #     alpha_vec[i] <- sqrt(t(can_vec) %*% can_vec) / bj_vec[i] / cj_vec[i]
+            # }
+            # rm(theta_i_mat)
+            # rm(can_vec)
+            # lam_max = max(alpha_vec)
+            # rm(alpha_vec)
+
+            lam_min = lam_max * min_lambda_ratio
+            lambda_seq <- exp(seq(from = log(lam_max), to = log(lam_min), length.out = lambda_length))
+
+            # default initial values for lambda_max
+            print("Using default lambda sequences and initial values for the path searching!")
+            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            delta_init <- logit_fit$coefficients
+            eta_stack_init <- rep(0, p * kn)
+            mu_1_init <- rep(0, kn)
+        }
+    }else{
+        print("It's recommended to use the default lambda sequence construction.")
+        lambda_length <- length(lambda_seq)
+        lambda_seq <- sort(lambda_seq, decreasing = TRUE)
+    }
+
+    # get fold id
+    if(!missing(fold_seed)){
+        set.seed(fold_seed)
+    }
+    fold_id_vec <- sample(rep(seq(nfold), length = n))
+    # related variables for cv results
+    loglik_test_mat <- matrix(0, nrow = nfold, ncol = lambda_length)    # store the loglik on the test set
+    # each row for one test set
+    if(post_selection){
+        loglik_post_mat <- loglik_test_mat
+    }
+    for(cv_id in 1 : nfold){
+        print(paste(nfold, "-fold CV, starting at ", cv_id, "/", nfold, sep = ""))
+        test_id_vec <- which(fold_id_vec == cv_id)
+        x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
+        y_vec_train <- y_vec[-test_id_vec]
+        x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
+        y_vec_test <- y_vec[test_id_vec]
+
+        # find solution path on the training set
+        print(paste("Find solution path on training set..."))
+        train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
+                                        h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+                                        lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
+                                        tol = tol, max_iter = max_iter)
+        # test performance on the test set
+        print(paste("Compute loglik on the testing set..."))
+        for(lam_id in 1 : lambda_length){
+            delta_vec <- train_res$delta_path[lam_id, ]
+            eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
+            test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+            loglik_test_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+        }
+
+        # test on testing set based on post-selection estimation
+        if(post_selection){
+            # post_res <- train_res
+            for(lam_id in 1 : lambda_length){
+                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
+                                                               delta_vec_init = train_res$delta_path[lam_id, ],
+                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                                                               # mu1_vec_init = rep(0, kn),
+                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                # post_res$delta_path[lam_id, ] <- post_est$delta_vec
+                # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
+                # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
+                # post_res$iter_num_path[lam_id] <- post_est$iter_num
+                # post_res$converge_path[lam_id] <- post_est$converge
+
+                delta_vec <- post_est$delta_vec
+                peta_stack_vec <- post_est$eta_stack_vec
+                test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+                loglik_post_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            }
+
+        }
+        print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
+    }
+
+    # find the lambda with the highest test loglik
+    lam_id <- which.max(colSums(loglik_test_mat))
+    res <- Logistic_FAR_OPath(y_vec = y_vec, x_mat = x_mat_bak,
+                              h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+                              lambda_seq = lambda_seq, mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
+                              tol = tol, max_iter = max_iter)
+
+    res$cv_id <- lam_id
+    res$loglik_test_mat <- loglik_test_mat
+    res$fold_id_vec <- fold_id_vec
+
+    if(post_selection){
+        lam_post_id <- which.max(colSums(loglik_post_mat))
+        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
+                                                      delta_vec_init = res$delta_path[lam_post_id, ],
+                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
+                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
+                                                      # mu1_vec_init = rep(0, kn),
+                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        res$cv_post_id <- lam_post_id
+        res$loglik_post_mat <- loglik_post_mat
+        res$post_est <- post_est
+    }
+    return(res)
+}
+
+
+Within_Group_Standardize <- function(x_mat, h, kn, p, a, bj_vec, cj_vec, rj_vec, mu2, svd_thresh){
+    # This function conducts the within-group standardization
+    # It performs within-group SVD to get singular value vector and transformation matrix of the original dataset
+    # It also computes the relax_vec for the later ADMM algorithm
+    # Args:
+    # Returns:
+
+    n <- nrow(x_mat)
+    x_mat_bak <- x_mat
+    # transformation matrix, stacked in row.
+    # initialize it with kn * p columns, but the real columns might be less
+    t_mat_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    # singular values for each grouped covariate matrix, stacked in row
+    # initialize with kn * p entries, but the real entries might be less
+    svd_vec_stack <- rep(0, kn * p)
+    # starting index for each orthonormalized group
+    # last entry is the end index of the last orthogonormalized group(column number of t_mat_stack) + 1
+    start_id_vec <- 1 : (p + 1)
+    # relaxation term for the quadratic part in the algorithm
+    relax_vec <- rep(1, p)
+
+    start_idx_current <- 1
+    for(i in 1 : p){
+        start_idx <- 1 + h + kn * (i - 1)
+        stop_idx <- kn + h + kn * (i - 1)
+        svd_res <- svd(x_mat_bak[, start_idx : stop_idx, drop = FALSE])
+        pick_id <- which(svd_res$d > svd_thresh)
+        if(length(pick_id) == 0){
+            stop(paste("Group ", i, " has 0-rank!", sep = ""))
+        }else{
+            if(length(pick_id) < kn){
+                print(paste("Group ", i, " has rank = ", length(pick_id), ", not full column rank!", sep = ""))
+            }
+            u_pick <- svd_res$u[, pick_id, drop = FALSE]
+            d_pick <- svd_res$d[pick_id]
+            v_pick <- svd_res$v[, pick_id, drop = FALSE]
+            # update x_mat
+            x_mat[, (1 : length(pick_id)) + start_idx_current + h - 1] <- sqrt(a) * u_pick
+
+            # update t_mat
+            t_mat_stack[, (1 : length(pick_id)) + start_idx_current - 1] <- sqrt(a) * v_pick %*% diag(1 / d_pick, nrow = length(pick_id))
+
+            # update svd_vec
+            svd_vec_stack[(1 : length(pick_id)) + start_idx_current - 1] <- d_pick
+        }
+        # update start_idx_current
+        start_id_vec[i] <- start_idx_current
+        start_idx_current <- start_idx_current + length(pick_id)
+
+        # update relax scalar k_{j_0}
+        # 10^{-6} is a small safe-guard constant
+        relax_vec[i] <- 0.25 + rj_vec[h + i] + mu2 * a / (min(d_pick) ^ 2) * (1 + 10^{-6})
+    }
+
+    # remove unnecessary columns
+    if(start_idx_current < p * kn + 1){
+        print(paste("Final start_id_current = ", start_idx_current, " < p * kn + 1, need to shrink the datamatrix!", sep = ""))
+        x_mat <- x_mat[, 1 : (start_idx_current - 1 + h), drop = FALSE]
+        t_mat_stack <- t_mat_stack[, 1 : (start_idx_current - 1), drop = FALSE]
+    }
+    start_id_vec[p + 1] <- start_idx_current
+
+    res <- list(x_mat = x_mat,
+                t_mat_stack = t_mat_stack,
+                svd_vec_stack = svd_vec_stack,
+                start_id_vec = start_id_vec,
+                relax_vec = relax_vec,
+                a = a,
+                svd_thresh = svd_thresh)
+    return(res)
+}
+
+Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_vec){
+    # This function finds the default lambda_max which shrinks all coefficients of functional covariates to 0
+    # Currently it's designed for Lasso penalty.
+    # But it should work for SCAD and MCP since their derivatives are close to Lasso at 0.
+    # Args: y_vec,
+    #       x_mat: covariate matrix(after within-group standardization)
+    #       h, kn, p: kn is not needed here because we use start_id_vec
+    #       a, bj_vec, cj_vec,
+    #       start_id_vec
+    #
+    # find lambda_max
+    # conduct the ordinary logistic regressoin
+    logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+    pi_fit <- exp(logit_fit$fitted.values) / (1 + exp(logit_fit$fitted.values))
+    alpha_vec <- rep(0, p)
+    for(i in 1 : p){
+        start_ind <- start_id_vec[i]
+        stop_ind <- start_id_vec[i + 1] - 1
+        theta_i_mat <- x_mat[, (start_ind : stop_ind) + h, drop = FALSE]
+        can_vec <- t(theta_i_mat) %*% (y_vec - pi_fit) / a
+        # new version of relax vector, where penalty kernel is \eta
+        alpha_vec[i] <- sqrt(t(can_vec) %*% can_vec) / bj_vec[i] / cj_vec[i]
+    }
+    print(alpha_vec)
+    # rm(theta_i_mat)
+    # rm(can_vec)
+    lam_max <- max(alpha_vec)
+    # rm(alpha_vec)
+    return(lam_max)
+}
+
+#' @export
+Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
+                                  p_type, p_param,
+                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
+                                  mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                  svd_thresh = 10^(-6), relax_vec,
+                                  delta_init, eta_stack_init, mu_1_init,
+                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1, cl = NULL){
+    # This function finds the solution path of Logistic_FAR over a sequence of lambda
+    # It uses cross-validation (based on the largest loglikelihood on the test sets)
+    #  to find the best lambda in that lambda sequence
+    # Note: x_mat is the basis coefficient representation version,
+    #         NOT the original functional version
+    # Args: p_type: an character variable indicating different types of the penalty
+    #               "L": lasso;
+    #               "S": SCAD;
+    #               "M": MCP
+    #       p_param: numerical parameters for the penalty function
+    #                p_param[1] is always the lambda
+    #                In this solution path function, p_param[1] will be provided by
+    #                lambda_seq
+    #       a: numerical scalar, the 1st part of loss function is 1 / a * (-loglik)
+    #       bj_vec: numerical vector for the penalty kernel, length(bj_vec) = p
+    #               or a scalar, then the function expands it to a vector
+    #               the penalty term is penalty_{lambda}(bj * \|eta\|)
+    #       cj_vec: numerical vector for the penalty kernel, length(cj_vec) = p
+    #               or a scalar, then the function expands it to a vector
+    #               the penalty term is cj * penalty_{lambda}(bj * \|eta\|)
+    #       rj_vec: numerical vector for the regularizer, length(rj_vec) = h + p
+    #               or a scalar, then the function expands it to a vector
+    #
+    # Return:
+
+    ######------------ prepare the data ------------
+    y_vec <- as.vector(y_vec)
+    x_mat <- as.matrix(x_mat)
+    n <- length(y_vec)    # number of observations
+    if(n != nrow(x_mat)){
+        stop("x_mat and y_vec don't have the same number of observations")
+    }
+    if((h + kn * p) != ncol(x_mat)){
+        stop("supplied h, kn or p don't match with column number of x_mat!")
+    }
+
+    ###--- check a, bj, cj and rj_vec ---###
+    if(length(bj_vec) == 1){
+        bj_vec <- rep(bj_vec, p)
+    }else{
+        if(length(bj_vec) != p){
+            stop("length of bj_vec does not match p!")
+        }
+    }
+    if(length(cj_vec) == 1){
+        cj_vec <- rep(cj_vec, p)
+    }else{
+        if(length(cj_vec) != p){
+            stop("length of cj_vec does not match p!")
+        }
+    }
+    if(length(rj_vec) == 1){
+        rj_vec <- rep(rj_vec, p + h)
+    }else{
+        if(length(rj_vec) != (p + h)){
+            stop("length of rj_vec does not match (p + h)!")
+        }
+    }
+
+    ###### ------ old version of within-group standardization, might be wrong ------ ######
+    # # standardize those grouped covariates in x_mat
+    # x_mat_bak <- x_mat    # a back up of x_mat
+    # # transformation matrix, stacked in row
+    # t_mat_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    # for(i in 1 : p){
+    #     start_idx <- 1 + h + (i - 1) * kn
+    #     stop_idx <- kn + h + (i - 1) * kn
+    #     svd_res <- svd(x_mat[, start_idx : stop_idx, drop = FALSE], nu = 0)
+    #     t_mat <- sqrt(a) * svd_res$v %*% diag(1 / svd_res$d, nrow = kn)
+    #     t_mat_stack[, (start_idx : stop_idx) - h] <- t_mat
+    #     x_mat[, start_idx : stop_idx] <- x_mat[, start_idx : stop_idx] %*% t_mat
+    # }
+    ###### ------ new version of within-group standardization ------ ######
+    print("start within-group orthonormalization!")
+    # back-up the original x_mat
+    x_mat_bak <- x_mat
+    svd_res <- Within_Group_Standardize(x_mat = x_mat_bak,
+                                        h = h, kn = kn, p = p,
+                                        a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                        mu2 = mu2,
+                                        svd_thresh = svd_thresh)
+    x_mat <- svd_res$x_mat
+    t_mat_stack <- svd_res$t_mat_stack    # transformation matrix, stacked in row.
+    svd_vec_stack <- svd_res$svd_vec_stack    # singular values for each grouped covariate matrix, stacked in row
+    start_id_vec <- svd_res$start_id_vec    # starting index for each orthonormalized group
+    # length(start_id_vec) = p + 1
+    # last entry is the end index of the last orthogonormalized group(column number of t_mat_stack) + 1
+    relax_vec <- svd_res$relax_vec    # relaxation term for the quadratic part in the algorithm
+    print("done!")
+
+    # covariate matrix for non-functional covariates
+    # delta_mat <- x_mat[, 1 : h, drop = FALSE]
+    # if(missing(h_inv)){
+    #   h_mat <- 1 / 4 * t(delta_mat) %*% delta_mat
+    #   h_inv <- solve(h_mat)
+    # }
+
+    # covariate matrices for functional covariates
+    # ind_mat stores the starting and stopping index for each functional covariates
+    #   in x_mat. Each row for one functional covariates.
+    # ind_mat also provides starting and stopping indces in eta_stack_vec, just minus h
+    #   since there's no delta part in eta.
+    ind_mat <- matrix(0, nrow = p, ncol = 2)
+    colnames(ind_mat) <- c("start_ind", "stop_ind")
+    rownames(ind_mat) <- paste("v", 1 : p, sep = "")
+    # ind_mat[, 1] <- (0 : (p - 1)) * kn + 1 + h
+    # ind_mat[, 2] <- (1 : p) * kn + h
+    ind_mat[, 1] <- start_id_vec[1 : p]
+    ind_mat[, 2] <- start_id_vec[2 : (p + 1)] - 1
+
+
+    # if(missing(eta_inv_stack)){
+    #     eta_inv_stack <- matrix(0, nrow = kn, ncol = kn * p)
+    #     for(j in 1 : p){
+    #         stack_start <- (j - 1) * kn + 1
+    #         stack_stop <- j * kn
+    #         x_mat_j <- x_mat[, ind_mat[j, 1] : ind_mat[j, 2], drop = FALSE]
+    #         h_mat_j <- 1 / 4 * t(x_mat_j) %*% x_mat_j
+    #         eta_inv_stack[, stack_start : stack_stop] <- solve(4 * h_mat_j)
+    #     }
+    # }
+
+    if(missing(lambda_seq)){
+        print("lambda sequence is missing, using default method to determine it!")
+
+        if(missing(lambda_length) || missing(min_lambda_ratio)){
+            stop("Both lambda_length and min_lambda_ratio must be provided for computing the lambda sequence!")
+        }else{
+            print(paste("lambda_length = ", lambda_length, sep = ""))
+            print(paste("min_lambda_ratio = ", min_lambda_ratio, sep = ""))
+
+            # find lambda_max
+            lam_max <- Get_Lambda_Max(y_vec = y_vec, x_mat = x_mat,
+                                      h = h, kn = kn, p = p,
+                                      a = a, bj_vec = bj_vec, cj_vec = cj_vec,
+                                      start_id_vec = start_id_vec)
+            ### --- get lambda_max, now putted into a stand alone function ---###
+            # conduct the ordinary logistic regressoin
+            # logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            # pi_fit <- exp(logit_fit$fitted.values) / (1 + exp(logit_fit$fitted.values))
+            # alpha_vec <- rep(0, p)
+            # for(i in 1 : p){
+            #     start_ind <- ind_mat[i, 1]
+            #     stop_ind <- ind_mat[i, 2]
+            #     theta_i_mat <- x_mat[, start_ind : stop_ind, drop = FALSE]
+            #     can_vec <- t(theta_i_mat) %*% (y_vec - pi_fit) / a
+            #     # origin version of relax vector, where penalty kernel is \theta\eta
+            #     # alpha_vec[i] <- sqrt(n * t(can_vec) %*% solve(t(theta_i_mat) %*% theta_i_mat) %*% can_vec)
+            #
+            #     # new version of relax vector, where penalty kernel is \eta
+            #     alpha_vec[i] <- sqrt(t(can_vec) %*% can_vec) / bj_vec[i] / cj_vec[i]
+            # }
+            # rm(theta_i_mat)
+            # rm(can_vec)
+            # lam_max = max(alpha_vec)
+            # rm(alpha_vec)
+
+            lam_min = lam_max * min_lambda_ratio
+            lambda_seq <- exp(seq(from = log(lam_max), to = log(lam_min), length.out = lambda_length))
+
+            # default initial values for lambda_max
+            print("Using default lambda sequences and initial values for the path searching!")
+            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            delta_init <- logit_fit$coefficients
+            eta_stack_init <- rep(0, p * kn)
+            mu_1_init <- rep(0, kn)
+        }
+    }else{
+        print("It's recommended to use the default lambda sequence construction.")
+        lambda_length <- length(lambda_seq)
+        lambda_seq <- sort(lambda_seq, decreasing = TRUE)
+    }
+
+    # get fold id
+    if(!missing(fold_seed)){
+        set.seed(fold_seed)
+    }
+    fold_id_vec <- sample(rep(seq(nfold), length = n))
+    # related variables for cv results
+    loglik_test_mat <- matrix(0, nrow = nfold, ncol = lambda_length)    # store the loglik on the test set
+    # each row for one test set
+    if(post_selection){
+        loglik_post_mat <- loglik_test_mat
+    }
+
+    pb <- progressr::progressor(along = 1 : (nfold * (1 + post_selection)))
+    cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
+                                           p_type, p_param, lambda_seq, mu2,
+                                           a, bj_vec, cj_vec, rj_vec,
+                                           svd_thresh, tol, max_iter,
+                                           post_selection, post_a, fold_id_vec){
+
+        # Rcpp::sourceCpp("logistic_far_solver.cpp", verbose = FALSE)    # a work around when not building this package
+        #                                                                # should be removed after the package is built
+        loglik_test_mat <- matrix(data = NA, nrow = 2, ncol = length(lambda_seq))
+        rownames(loglik_test_mat) <- c("original", "post_selection")
+
+        # get training and testing data for current cv_id
+        test_id_vec <- which(fold_id_vec == cv_id)
+        x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
+        y_vec_train <- y_vec[-test_id_vec]
+        x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
+        y_vec_test <- y_vec[test_id_vec]
+
+        # find solution path on the training set
+        print(paste("Find solution path on training set..."))
+        train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
+                                        h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+                                        lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
+                                        tol = tol, max_iter = max_iter)
+        # test performance on the test set
+        print(paste("Compute loglik on the testing set..."))
+        for(lam_id in 1 : lambda_length){
+            delta_vec <- train_res$delta_path[lam_id, ]
+            eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
+            test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+            # loglik_test_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            loglik_test_mat[1, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+        }
+
+        # test on testing set based on post-selection estimation
+        if(post_selection){
+            # post_res <- train_res
+            for(lam_id in 1 : lambda_length){
+                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
+                                                               delta_vec_init = train_res$delta_path[lam_id, ],
+                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                                                               # mu1_vec_init = rep(0, kn),
+                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                # post_res$delta_path[lam_id, ] <- post_est$delta_vec
+                # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
+                # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
+                # post_res$iter_num_path[lam_id] <- post_est$iter_num
+                # post_res$converge_path[lam_id] <- post_est$converge
+
+                delta_vec <- post_est$delta_vec
+                peta_stack_vec <- post_est$eta_stack_vec
+                test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+                loglik_test_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            }
+            pb(paste("post selection for folder id = ", cv_id, " finished!", sep = ""))
+        }
+        print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
+        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished!", sep = ""))
+        return(loglik_test_mat)
+
+    }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p,
+    p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
+    a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+    svd_thresh = svd_thresh, tol = tol, max_iter = max_iter,
+    post_selection = post_selection, post_a = post_a, fold_id_vec = fold_id_vec)
+
+    ### --- construct the cv result --- ###
+    for(cv_id in 1 : nfold){
+        cv_res_small <- cv_res[[cv_id]]
+        loglik_test_mat[cv_id, ] <- cv_res_small[1, ]
+        if(post_selection){
+            loglik_post_mat[cv_id, ] <- cv_res_small[2, ]
+        }
+    }
+
+    # for(cv_id in 1 : nfold){
+    #     print(paste(nfold, "-fold CV, starting at ", cv_id, "/", nfold, sep = ""))
+    #     test_id_vec <- which(fold_id_vec == cv_id)
+    #     x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
+    #     y_vec_train <- y_vec[-test_id_vec]
+    #     x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
+    #     y_vec_test <- y_vec[test_id_vec]
+    #
+    #     # find solution path on the training set
+    #     print(paste("Find solution path on training set..."))
+    #     train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
+    #                                     h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+    #                                     lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
+    #                                     tol = tol, max_iter = max_iter)
+    #     # test performance on the test set
+    #     print(paste("Compute loglik on the testing set..."))
+    #     for(lam_id in 1 : lambda_length){
+    #         delta_vec <- train_res$delta_path[lam_id, ]
+    #         eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
+    #         test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+    #         loglik_test_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+    #     }
+    #
+    #     # test on testing set based on post-selection estimation
+    #     if(post_selection){
+    #         # post_res <- train_res
+    #         for(lam_id in 1 : lambda_length){
+    #             post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
+    #                                                            delta_vec_init = train_res$delta_path[lam_id, ],
+    #                                                            eta_stack_init = train_res$eta_stack_path[lam_id, ],
+    #                                                            mu1_vec_init = train_res$mu_1_path[lam_id, ],
+    #                                                            # mu1_vec_init = rep(0, kn),
+    #                                                            mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+    #             # post_res$delta_path[lam_id, ] <- post_est$delta_vec
+    #             # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
+    #             # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
+    #             # post_res$iter_num_path[lam_id] <- post_est$iter_num
+    #             # post_res$converge_path[lam_id] <- post_est$converge
+    #
+    #             delta_vec <- post_est$delta_vec
+    #             peta_stack_vec <- post_est$eta_stack_vec
+    #             test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+    #             loglik_post_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+    #         }
+    #
+    #     }
+    #     print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
+    # }
+
+    # find the lambda with the highest test loglik
+    lam_id <- which.max(colSums(loglik_test_mat))
+    res <- Logistic_FAR_OPath(y_vec = y_vec, x_mat = x_mat_bak,
+                              h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+                              lambda_seq = lambda_seq, mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
+                              tol = tol, max_iter = max_iter)
+
+    res$cv_id <- lam_id
+    res$loglik_test_mat <- loglik_test_mat
+    res$fold_id_vec <- fold_id_vec
+
+    if(post_selection){
+        lam_post_id <- which.max(colSums(loglik_post_mat))
+        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
+                                                      delta_vec_init = res$delta_path[lam_post_id, ],
+                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
+                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
+                                                      # mu1_vec_init = rep(0, kn),
+                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        res$cv_post_id <- lam_post_id
+        res$loglik_post_mat <- loglik_post_mat
+        res$post_est <- post_est
+    }
+    return(res)
+}
