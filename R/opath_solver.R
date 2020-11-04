@@ -849,7 +849,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
         loglik_post_mat <- loglik_test_mat
     }
 
-    pb <- progressr::progressor(along = 1 : (nfold * (1 + post_selection)))
+    pb <- progressr::progressor(along = 1 : nfold)
     cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
                                            p_type, p_param, lambda_seq, mu2,
                                            a, bj_vec, cj_vec, rj_vec,
@@ -905,7 +905,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
                 test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
                 loglik_test_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
             }
-            pb(paste("post selection for folder id = ", cv_id, " finished!", sep = ""))
+            # pb(paste("post selection for folder id = ", cv_id, " finished!", sep = ""))
         }
         print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
         pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished!", sep = ""))
@@ -925,55 +925,6 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
             loglik_post_mat[cv_id, ] <- cv_res_small[2, ]
         }
     }
-
-    # for(cv_id in 1 : nfold){
-    #     print(paste(nfold, "-fold CV, starting at ", cv_id, "/", nfold, sep = ""))
-    #     test_id_vec <- which(fold_id_vec == cv_id)
-    #     x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
-    #     y_vec_train <- y_vec[-test_id_vec]
-    #     x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
-    #     y_vec_test <- y_vec[test_id_vec]
-    #
-    #     # find solution path on the training set
-    #     print(paste("Find solution path on training set..."))
-    #     train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
-    #                                     h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-    #                                     lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
-    #                                     tol = tol, max_iter = max_iter)
-    #     # test performance on the test set
-    #     print(paste("Compute loglik on the testing set..."))
-    #     for(lam_id in 1 : lambda_length){
-    #         delta_vec <- train_res$delta_path[lam_id, ]
-    #         eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
-    #         test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-    #         loglik_test_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
-    #     }
-    #
-    #     # test on testing set based on post-selection estimation
-    #     if(post_selection){
-    #         # post_res <- train_res
-    #         for(lam_id in 1 : lambda_length){
-    #             post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
-    #                                                            delta_vec_init = train_res$delta_path[lam_id, ],
-    #                                                            eta_stack_init = train_res$eta_stack_path[lam_id, ],
-    #                                                            mu1_vec_init = train_res$mu_1_path[lam_id, ],
-    #                                                            # mu1_vec_init = rep(0, kn),
-    #                                                            mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
-    #             # post_res$delta_path[lam_id, ] <- post_est$delta_vec
-    #             # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
-    #             # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
-    #             # post_res$iter_num_path[lam_id] <- post_est$iter_num
-    #             # post_res$converge_path[lam_id] <- post_est$converge
-    #
-    #             delta_vec <- post_est$delta_vec
-    #             peta_stack_vec <- post_est$eta_stack_vec
-    #             test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-    #             loglik_post_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
-    #         }
-    #
-    #     }
-    #     print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
-    # }
 
     # find the lambda with the highest test loglik
     lam_id <- which.max(colSums(loglik_test_mat))
