@@ -1,3 +1,55 @@
+#' Finds the solution path of logistic functional additive regression with log-contrast constrain.
+#'
+#' \code{Logistic_FAR_OPath} finds the solution path of logistic functional additive regression
+#' with log-contrast constrain. It will use within-group orthonormalization to
+#' standardize the data before the real computation.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param h,kn,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param p_type an character variable indicating different types of the penalty
+#               "L": lasso;
+#               "S": SCAD;
+#               "M": MCP
+#'
+#' @param p_param numerical vector for the penalty function.
+#' \code{p_param[1]} store sthe lambda value and will be provided by \code{lambda_seq}.
+#'
+#' @param lambda_seq a non-negative sequence of lambda, along which the solution path is searched.
+#' It is RECOMMENED to not supply this parameter and let the function itself determines
+#' it from the given data.
+#'
+#' @param lambda_length length of the lambda sequence when computing \code{lambda_seq}.
+#' If \code{lambda_seq} is provided, then of course \code{lambda_length = length(lambda_seq)}.
+#'
+#' @param min_lam_ratio: \code{min(lambda_seq) / max{lambda_seq}}. This function uses this
+#' parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it
+#' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
+#' set it to 0.001 or even smaller.
+#'
+#' @param  mu2 quadratic term in the ADMM algorithm
+#'
+#' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
+#' for more information.
+#'
+#' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
+#'
+#' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
+#'
+#' @param verbose not used
+#'
+#' @param svd_thresh a small value for threashing the singular value vectors.
+#'
+#' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
+#' and some computation information such as convergency, iteration number and the lambda
+#' sequence of this solution path.
 #' @export
 Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
                                p_type, p_param, lambda_seq, lambda_length, min_lambda_ratio = 0.01,
@@ -10,7 +62,7 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
     #              n = length(y_vec) is the number of observations
     #       x_mat: covariate matrix, consists of two parts.
     #              dim(x_mat) = (n, h + p * kn)
-    #              First h columns are for demographical covariates(can include a intercept term)
+    #              First h columns are for demographical covariates(can include an intercept term)
     #              Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
     #       h, kn, p: dimension information for the dataset
     #       p_type: character, type of the penalty term
@@ -285,6 +337,80 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
     return(res)
 }
 
+#' Cross-validation for solution path of Logistic FAR.
+#'
+#' \code{Logistic_FAR_CV_opath} finds the solution path of logistic functional additive regression
+#' with log-contrast constrain via \code{Logistic_FAR_OPath}, which means it will perform within-group orthonormalization to
+#' standardize the data before the real computation. Also, it uses cross-validation
+#' to assess the goodness of the estimations in the solution path.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param h,kn,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param p_type an character variable indicating different types of the penalty
+#               "L": lasso;
+#               "S": SCAD;
+#               "M": MCP
+#'
+#' @param p_param numerical vector for the penalty function.
+#' \code{p_param[1]} store sthe lambda value and will be provided by \code{lambda_seq}.
+#'
+#' @param lambda_seq a non-negative sequence of lambda, along which the solution path is searched.
+#' It is RECOMMENED to not supply this parameter and let the function itself determines
+#' it from the given data.
+#'
+#' @param lambda_length length of the lambda sequence when computing \code{lambda_seq}.
+#' If \code{lambda_seq} is provided, then of course \code{lambda_length = length(lambda_seq)}.
+#'
+#' @param min_lam_ratio: \code{min(lambda_seq) / max{lambda_seq}}. This function uses this
+#' parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it
+#' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
+#' set it to 0.001 or even smaller.
+#'
+#' @param  mu2 quadratic term in the ADMM algorithm
+#'
+#' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
+#' for more information.
+#'
+#' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
+#'
+#' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
+#'
+#' @param relax_vec not used
+#'
+#' @param svd_thresh a small value for threashing the singular value vectors.
+#'
+#' @param nfold integer, number of folds
+#'
+#' @param fold_seed if supplied, use this seed to generate the partitions for cross-validation.
+#' Can be useful for reproducible runs.
+#'
+#' @param post_selection bool, should the function also computes cross-validation results
+#' based on post selection estimation results.
+#'
+#' @param post_a \code{a} for the post selection estimation.
+#'
+#' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
+#' and some computation information such as convergency, iteration number and the lambda
+#' sequence of this solution path. Also information of CV is returned such as the fold ID
+#' for each observation, the loglikelihood results on each test set and the index with the
+#' highest average loglik on the testsets. If \code{post_selection = TRUE}, same results
+#' based on the post selection estimation are also returned.
+#'
+#' @note Although this function will return the index of lambda given the highest
+#' averaged loglik on the testsets. It is more recommended to use the stand alone
+#' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
+#' lambda since those functions gives more flexibility.
+#'
+#' @note This function conducts cross validation in a sequential manner. For possible
+#' parallel implementation, see \code{Logistic_FAR_CV_opath_par}.
 #' @export
 Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
                                   p_type, p_param,
@@ -656,6 +782,84 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
     return(lam_max)
 }
 
+#' Cross-validation for solution path of Logistic FAR.
+#'
+#' \code{Logistic_FAR_CV_opath} finds the solution path of logistic functional additive regression
+#' with log-contrast constrain via \code{Logistic_FAR_OPath}, which means it will perform within-group orthonormalization to
+#' standardize the data before the real computation. Also, it uses cross-validation
+#' to assess the goodness of the estimations in the solution path.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param h,kn,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param p_type an character variable indicating different types of the penalty
+#               "L": lasso;
+#               "S": SCAD;
+#               "M": MCP
+#'
+#' @param p_param numerical vector for the penalty function.
+#' \code{p_param[1]} store sthe lambda value and will be provided by \code{lambda_seq}.
+#'
+#' @param lambda_seq a non-negative sequence of lambda, along which the solution path is searched.
+#' It is RECOMMENED to not supply this parameter and let the function itself determines
+#' it from the given data.
+#'
+#' @param lambda_length length of the lambda sequence when computing \code{lambda_seq}.
+#' If \code{lambda_seq} is provided, then of course \code{lambda_length = length(lambda_seq)}.
+#'
+#' @param min_lam_ratio: \code{min(lambda_seq) / max{lambda_seq}}. This function uses this
+#' parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it
+#' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
+#' set it to 0.001 or even smaller.
+#'
+#' @param  mu2 quadratic term in the ADMM algorithm
+#'
+#' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
+#' for more information.
+#'
+#' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
+#'
+#' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
+#'
+#' @param relax_vec not used
+#'
+#' @param svd_thresh a small value for threashing the singular value vectors.
+#'
+#' @param nfold integer, number of folds
+#'
+#' @param fold_seed if supplied, use this seed to generate the partitions for cross-validation.
+#' Can be useful for reproducible runs.
+#'
+#' @param post_selection bool, should the function also computes cross-validation results
+#' based on post selection estimation results.
+#'
+#' @param post_a \code{a} for the post selection estimation.
+#'
+#' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
+#' and some computation information such as convergency, iteration number and the lambda
+#' sequence of this solution path. Also information of CV is returned such as the fold ID
+#' for each observation, the loglikelihood results on each test set and the index with the
+#' highest average loglik on the testsets. If \code{post_selection = TRUE}, same results
+#' based on the post selection estimation are also returned.
+#'
+#' @note Although this function will return the index of lambda given the highest
+#' averaged loglik on the testsets. It is more recommended to use the stand alone
+#' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
+#' lambda since those functions gives more flexibility.
+#'
+#' @note This function utilizes the \code{future} backend and the \code{future.apply}
+#' package. You can set up the \code{future::plan()} according to your needs.
+#'
+#' @note This function utilizes the \code{progressr} packages to provide progress
+#' bar capability. End user can use \code{with_progress{Logistic_FAR_CV_opath_par(...)}}
+#' to moniter the progress of the running.
 #' @export
 Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
                                   p_type, p_param,
