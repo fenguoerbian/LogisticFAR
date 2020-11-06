@@ -27,6 +27,7 @@ LogLik_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec){
               logit_vec = logit_vec))
 }
 
+#' @export
 BIC_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, k_n, a = 1, bic_kn = k_n, complex_bound){
   lam_len <- length(solution_path$lambda_seq)
   n <- length(y_vec)
@@ -82,6 +83,7 @@ AUC_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec){
               logit_vec = logit_vec))
 }
 
+#' @export
 Number_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, kn, given_number = 5, upper_bound = TRUE){
   # This function picks the solution along the solution path based on a pre-specified number of covariates
   # Note that in practice, the number of selected number of functional covariates might increase more than 1
@@ -139,6 +141,7 @@ Number_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, kn, given_n
   ))
 }
 
+#' @export
 CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_bound, cv_1se = FALSE){
   # This function picks a lambda from a solution path resulting from CV path solver
   # Also the solver function will always return with a selected lambda
