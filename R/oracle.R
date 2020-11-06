@@ -1,3 +1,40 @@
+#' Oracle estimator of the Logistic FAR problem
+#'
+#' \code{Logistic_FAR_Oracle} computes the oracle estimator of the Logistic FAR
+#' problem.
+#'
+#' In high-dimensional statistics, the oracle estimator is achieved by assuming
+#' the real model structure is known, i.e. an oracle knows what are the relevant
+#' covariates in the model. And the covariate effects are computed through unpenalized
+#' regression.
+#'
+#' Basically, this functions performs unpenalized Logistic FAR (with log-contrast constrain)
+#' on the given dataset \code{y_vec} and \code{x_mat}. Hence it is end user who
+#' acts like an oracle to decide which variables will be passed to this function.
+#' Sometimes, this procedure is similar to a post-selection estimation.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First \code{h} columns are for demographical covariates.
+#' End user can include an intercept term.
+#' Rest columns are for \code{p} functional covariates, each being represented
+#' by a set of basis functions resulting \code{kn} covariates.
+#' Hence there are \code{p * kn} columns for the functional part.
+#'
+#' @param h,kn,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param mu2 quadratic term in the ADMM algorithm
+#'
+#' @param h_inv,eta_inv_stack intermediate variables in the algorithm.
+#' If not provided, then it can be computed from the dataset.
+#'
+#' @param delta_init,eta_stack_init,mu_1_init initial values for the algorithm.
+#'
+#' @param tol,max_iter  convergence tolerance and max number of iteration of the algorithm.
+#'
 #' @export
 Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
                                 h_inv, eta_inv_stack,
@@ -35,7 +72,7 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
     #       mu_1_init: initial value vector for multiplier vector mu_1 in ADMM algorithm
     #       tol: convergence tolerance
     #       max_iter: max number of iteration
-    
+
     ######------------ prepare the data ------------
     y_vec <- as.vector(y_vec)
     x_mat <- as.matrix(x_mat)
@@ -46,14 +83,14 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
     if((h + k_n * p) != ncol(x_mat)){
         stop("supplied h, k_n or p don't match with column number of x_mat!")
     }
-    
+
     # covariate matrix for non-functional covariates
     delta_mat <- x_mat[, 1 : h, drop = FALSE]
     if(missing(h_inv)){
         h_mat <- 1 / 4 * t(delta_mat) %*% delta_mat
         h_inv <- solve(h_mat)
     }
-    
+
     # covariate matrices for functional covariates
     # ind_mat stores the starting and stopping index for each functional covariates
     #   in x_mat. Each row for one functional covariates.
@@ -82,39 +119,39 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
     x_eta_mat <- x_mat[, 1 : (k_n * p) + h, drop = FALSE]
     h_eta <- 1 / 4 * t(x_eta_mat) %*% x_eta_mat
     h_eta_inv <- solve(h_eta + mu_2 * t(c_mat) %*% c_mat + 0.05 * diag(k_n * p))
-    
+
     ###### ------------ main algorithm ------------
     diff <- 1
     current_iter <- 0
     converge <- FALSE
     loss_drop <- TRUE
-    
+
     delta <- delta_init
     eta_stack <- eta_stack_init
     mu_1_vec <- mu_1_init
     eta_mat <- matrix(eta_stack, nrow = k_n)
-    
+
     logit_vec <- x_mat %*% c(delta, eta_stack)
     loglik <- sum(y_vec * logit_vec - log(1 + exp(logit_vec)))
     loss_p2 <- t(mu_1_vec) %*% rowSums(eta_mat) + mu_2 / 2 * t(rowSums(eta_mat)) %*% rowSums(eta_mat)
     loss <- -loglik + loss_p2
     print(paste("Initial loss  = ", loss, sep = ""))
     Compute_Loss(x_mat, y_vec, delta, eta_stack, mu_1_vec, mu_2, h, k_n, p, 0, oracle_loss = TRUE, print_res = T)
-    
-    
-    
+
+
+
     while((!converge) && (current_iter < max_iter) && (loss_drop)){
         # store results from previous iteration
         delta_old <- delta
         eta_stack_old <- eta_stack
         mu_1_vec_old <- mu_1_vec
         loss_old <- loss
-        
+
         # update
         # step 1. get the current pi_vec
         logit_vec <- x_mat %*% c(delta_old, eta_stack_old)
         pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-        
+
         # step 2. update the demographical covariates
         delta <- delta_old - h_inv %*% t(delta_mat) %*% (pi_vec - y_vec)
         # print("After updating delta:")
@@ -122,11 +159,11 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
         # update logit_vec and pi_vec
         logit_vec <- x_mat %*% c(delta, eta_stack_old)
         pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-        
+
         # step 3. update the functional covariates
         eta_mat_old <- matrix(eta_stack_old, nrow = k_n)    # eta_stack_old in matrix form, k_n * p
         # each COLUMN for one covariates
-        
+
         # update eta_j blockwisely
         # for(j in 1 : p){
         #   # prepare some necessay variables
@@ -158,14 +195,14 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
         # update eta_j together
         alpha_eta <- h_eta %*% eta_stack_old + t(x_eta_mat) %*% (y_vec - pi_vec) - t(c_mat) %*% mu_1_vec_old
         eta_stack <- h_eta_inv %*% alpha_eta
-        
+
         # debug log
         # print("After updating eta, loss changes from")
         # Compute_Loss(x_mat, y_vec, delta, eta_stack, mu_1_vec, mu_2, h, k_n, p, 0, oracle_loss = TRUE, print_res = T)
         # print("to")
         # Compute_Loss(x_mat, y_vec, delta, eta_stack, mu_1_vec, mu_2, h, k_n, p, 0, oracle_loss = TRUE, print_res = T)
-        
-        
+
+
         # thresh <- 50
         # for(i in 1 : length(eta_stack)){
         #   if(eta_stack[i] > thresh){
@@ -179,13 +216,13 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
         # each COLUMN for one covariates
         eta_mat <- matrix(eta_stack, nrow = k_n)    # eta_stack in matrix form, k_n * p
         mu_1_vec <- mu_1_vec_old + mu_2 * rowSums(eta_mat)
-        
+
         # debug log
         # print("Updating mu_1_vec from ")
         # print(mu_1_vec_old)
         # print("to")
         # print(mu_1_vec)
-        
+
         # check convergency
         current_iter <- current_iter + 1
         diff1 <- sqrt(sum((delta - delta_old) ^ 2))
@@ -198,14 +235,14 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
         loglik <- sum(y_vec * logit_vec - log(1 + exp(logit_vec)))
         loss_p2 <- t(mu_1_vec) %*% rowSums(eta_mat) + mu_2 / 2 * t(rowSums(eta_mat)) %*% rowSums(eta_mat)
         loss <- -loglik + loss_p2
-        
+
         # debug log
         # print(paste("loglik = ", loglik, ", loss_p2 = ", loss_p2, ", loss = ", loss, sep = ""))
         # print(paste("eta row sum: ", paste(rowSums(eta_mat), collapse = " "), sep = ""))
         # Compute_Loss(x_mat, y_vec, delta, eta_stack, mu_1_vec, mu_2, h, k_n, p, 0, oracle_loss = TRUE, print_res = T)
-        
+
         print(paste("iter_num = ", current_iter, " diff1 = ", diff1, ", diff2 = ", diff2, ", loss = ", loss, sep = ""))
-        
+
         if(loss > (loss_old + 1)){
             loss_drop <- FALSE
             if(diff <= tol){
@@ -217,7 +254,7 @@ Logistic_FAR_Oracle <- function(y_vec, x_mat, h, k_n, p, mu_2,
             }
         }
     }
-    
+
     ###### ------------ summary the result ------------
     res <- list(delta = delta,
                 eta_stack = eta_stack,
