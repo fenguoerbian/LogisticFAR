@@ -814,7 +814,7 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
 #' @param lambda_length length of the lambda sequence when computing \code{lambda_seq}.
 #' If \code{lambda_seq} is provided, then of course \code{lambda_length = length(lambda_seq)}.
 #'
-#' @param min_lam_ratio: \code{min(lambda_seq) / max{lambda_seq}}. This function uses this
+#' @param min_lam_ratio \code{min(lambda_seq) / max{lambda_seq}}. This function uses this
 #' parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it
 #' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
 #' set it to 0.001 or even smaller.
@@ -867,7 +867,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
                                   mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
                                   svd_thresh = 10^(-6), relax_vec,
                                   delta_init, eta_stack_init, mu_1_init,
-                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1, cl = NULL){
+                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
     # It uses cross-validation (based on the largest loglikelihood on the test sets)
     #  to find the best lambda in that lambda sequence

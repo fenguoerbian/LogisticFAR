@@ -94,7 +94,7 @@ based on the post selection estimation are also returned.
 }
 \description{
 \code{Logistic_FAR_CV_opath} finds the solution path of logistic functional additive regression
-with log-contrast constrain via \code{Logistic_FAR_OPath}, which means will use within-group orthonormalization to
+with log-contrast constrain via \code{Logistic_FAR_OPath}, which means it will perform within-group orthonormalization to
 standardize the data before the real computation. Also, it uses cross-validation
 to assess the goodness of the estimations in the solution path.
 }

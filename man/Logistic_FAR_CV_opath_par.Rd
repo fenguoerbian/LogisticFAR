@@ -30,8 +30,7 @@ Logistic_FAR_CV_opath_par(
   nfold = 5,
   fold_seed,
   post_selection = FALSE,
-  post_a = 1,
-  cl = NULL
+  post_a = 1
 )
 }
 \arguments{
@@ -80,7 +79,7 @@ based on post selection estimation results.}
 
 \item{post_a}{\code{a} for the post selection estimation.}
 
-\item{min_lam_ratio:}{\code{min(lambda_seq) / max{lambda_seq}}. This function uses this
+\item{min_lam_ratio}{\code{min(lambda_seq) / max{lambda_seq}}. This function uses this
 parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it
 is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
 set it to 0.001 or even smaller.}
@@ -95,7 +94,7 @@ based on the post selection estimation are also returned.
 }
 \description{
 \code{Logistic_FAR_CV_opath} finds the solution path of logistic functional additive regression
-with log-contrast constrain via \code{Logistic_FAR_OPath}, which means will use within-group orthonormalization to
+with log-contrast constrain via \code{Logistic_FAR_OPath}, which means it will perform within-group orthonormalization to
 standardize the data before the real computation. Also, it uses cross-validation
 to assess the goodness of the estimations in the solution path.
 }
@@ -106,7 +105,7 @@ averaged loglik on the testsets. It is more recommended to use the stand alone
 lambda since those functions gives more flexibility.
 
 This function utilizes the \code{future} backend and the \code{future.apply}
-package. You can set up the \code{future::plan} according to your needs.
+package. You can set up the \code{future::plan()} according to your needs.
 
 This function utilizes the \code{progressr} packages to provide progress
 bar capability. End user can use \code{with_progress{Logistic_FAR_CV_opath_par(...)}}
