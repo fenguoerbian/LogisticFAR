@@ -56,5 +56,5 @@ regression.
 Basically, this functions performs unpenalized Logistic FAR (with log-contrast constrain)
 on the given dataset \code{y_vec} and \code{x_mat}. Hence it is end user who
 acts like an oracle to decide which variables will be passed to this function.
-Sometimes, this procidure similar to a post-selection estimation.
+Sometimes, this procedure is similar to a post-selection estimation.
 }

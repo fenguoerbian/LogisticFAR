@@ -27,6 +27,44 @@ LogLik_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec){
               logit_vec = logit_vec))
 }
 
+#' Pick the optimal \code{lambda} according to the BIC criteria.
+#'
+#' This function picks the optimal \code{lambda} in a solution path using the
+#' BIC criteria.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param solution_path A solution path from function \code{Logistic_FAR_Path}
+#'
+#' @param real_logit_vec NOT used in this function
+#'
+#' @param k_n number of basis functions.(This is also number of covariates in each group)
+#'
+#' @param a a scalar adjusting the loglik in the first part of BIC
+#'
+#' @param bic_kn a scalar adjusting the model complexsity part of BIC
+#'
+#' @param complex_bound Numeric, the upper bound of the model complexsity to be considered.
+#' If not supplied, all functional covariates will be considered. In the case of \code{p > n},
+#' this may lead to model saturation which makes the BIC cirteria favor a much more
+#' complex model because it offers near-perfect fitting results on the training set.
+#'
+#' @section BIC:
+#' In this function, BIC is defined as
+#' \deqn{
+#'   BIC = 1 / a * loglik + df * log(n) / bic_kn
+#'   ,
+#' }
+#' where \code{df} is the degree of freedom of the model. In this case, it's the number
+#' of active covariates in the functional part of \code{x_mat}. Since the algorithm form
+#' the problem into a group lasso scenario, here the number of active covariates equals
+#' to the number of active functional \eqn{x(t)} times the number of basis functions \code{k_n}.
 #' @export
 BIC_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, k_n, a = 1, bic_kn = k_n, complex_bound){
   lam_len <- length(solution_path$lambda_seq)
@@ -83,6 +121,35 @@ AUC_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec){
               logit_vec = logit_vec))
 }
 
+#' Pick covariates those enter the solution path first
+#'
+#' This function picks the solution along the solution path based on a pre-specified number of covariates
+#'
+#' Note that in practice, the number of selected number of functional covariates
+#' might increase more than 1. Therefore it's not uncommon to eventually pick less
+#' (or more) than the pre-specified number.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param solution_path A solution path from function \code{Logistic_FAR_Path}
+#'
+#' @param real_logit_vec NOT used in this function
+#'
+#' @param kn number of basis functions.(This is also number of covariates in each group)
+#'
+#' @param given_number A pre-specified number. This function will pick the \code{given_number}
+#' of functional covariates which enter the solution path first.
+#'
+#' @param upper_bound Logical, default to \code{TRUE}. Whether the \code{given_number}
+#' is a strict upper bound. If \code{TRUE}, the picked model will have
+#' number of active functional covariates closest to it and never exceeds it.
+#'
 #' @export
 Number_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, kn, given_number = 5, upper_bound = TRUE){
   # This function picks the solution along the solution path based on a pre-specified number of covariates
@@ -141,6 +208,37 @@ Number_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec, kn, given_n
   ))
 }
 
+#' Pick an optimal lambda from a CV solution path
+#'
+#' This function picks a best estimation from a CV solution path.
+#'
+#' Although the solver function will always return with a selected lambda
+#' This function offers more selecting options.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param cv_solution_path A solution path and related cross validation information.
+#' This is the result from \code{Logistic_FAR_CV_opath}, \code{Logistic_FAR_CV_opath_par}
+#' or \code{Logistic_FAR_CV_Path}.
+#'
+#' @param real_logit_vec Not used in this function
+#'
+#' @param kn number of basis functions for each functional covariates.
+#'
+#' @param complex_bound The upper bound for number of active functional covariates to be considered.
+#' If missing, the whole path will be considered.
+#'
+#' @param cv_1se Logical. Whether the 1se strategy be applied.
+#'
+#' @section 1se Strategy:
+#' largest value of lambda such that error is within 1 standard error of the maximum likelihood based on CV
+#'
 #' @export
 CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_bound, cv_1se = FALSE){
   # This function picks a lambda from a solution path resulting from CV path solver
@@ -398,6 +496,35 @@ Compute_Loss <- function(x_mat, y_vec, delta_vec, eta_stack_vec, mu1_vec, mu_2, 
     }
 }
 
+#' Post-selection estimation
+#'
+#' This function performs post-selection estimation on a given solution.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param h,k_n,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param delta_vec_init,eta_stack_init,mu1_vec_init Initial values for the algorithm.
+#' This function uses these initial values to find out the active functional covariates.
+#' And the post-selection estimation begins with these initial values.
+#'
+#' @param mu2 quadratic term in the ADMM algorithm
+#'
+#' @param a parameters for the algorithm. The 1st term in the loss function is
+#' \code{1 / a * loglik}. See Algorithm_Details.pdf
+#' for more information.
+#'
+#' @param lam A scalar for the regularize in ridge penalty form in case of model saturation.
+#'
+#' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
+#'
+#' @export
 Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, tol = 10^(-5), max_iter = 1000){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat

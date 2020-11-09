@@ -2,12 +2,12 @@ Package: LogisticFAR
 Title: Logistic Functional Additive Regression with log-contrast constrain.
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Chao",
+           family = "Cheng",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+           email = "413557584@qq.com")
+Description: This packages conducts Logistic Functional Additive Regression with 
+    log-contrast constrains on the functional part of the design matrix. 
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
