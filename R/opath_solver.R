@@ -199,7 +199,7 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
     # some variables needed for updating demographical part
     delta_mat <- x_mat[, 1 : h, drop = FALSE]
     hd_mat <- 0.25 * t(delta_mat) %*% delta_mat
-    hd_inv <- solve(hd_mat + diag(a * rj_vec[1 : h]), nrow = h)
+    hd_inv <- solve(hd_mat + diag(a * rj_vec[1 : h], nrow = h))
 
     # functional(grouped) part
     # theta_mat <- x_mat[, (1 : start_id_vec[p + 1]) + h, drop = FALSE]
