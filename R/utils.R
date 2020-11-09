@@ -367,6 +367,7 @@ Confusion_Mat <- function(eta_stack_vec, k_n, pos_id_vec, neg_id_vec){
               FN = FN))
 }
 
+#' @export
 Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, eta_vec0, k_n){
   # sim_num <- nrow(delta_mat)
   res <- matrix(0, nrow = 2, ncol = 6)

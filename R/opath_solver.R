@@ -603,6 +603,8 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
     if(post_selection){
         loglik_post_mat <- loglik_test_mat
     }
+
+    pb <- progressr::progressor(along = 1 : nfold)
     for(cv_id in 1 : nfold){
         print(paste(nfold, "-fold CV, starting at ", cv_id, "/", nfold, sep = ""))
         test_id_vec <- which(fold_id_vec == cv_id)
@@ -650,6 +652,7 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
 
         }
         print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
+        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished!", sep = ""))
     }
 
     # find the lambda with the highest test loglik
