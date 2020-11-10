@@ -357,7 +357,7 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     Eigen::MatrixXd theta_j;
     Eigen::VectorXd alpha_j;
     
-    Rcpp::Function r_compute_loss("Compute_Loss");    // access R function Compute_Loss
+    // Rcpp::Function r_compute_loss("Compute_Loss");    // access R function Compute_Loss
     double (*pfun)(const double &, const Eigen::VectorXd &, const bool &);
     // determine penalty function
     if(p_type == 'L'){
@@ -367,7 +367,7 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     }else if(p_type == 'M'){
         pfun = Penalty_MCP;
     }else{
-        Rcpp::Rcout << "Not found!" << std::endl;
+        Rcpp::Rcout << "Penalty not found! Use default Lasso!" << std::endl;
         pfun = Penalty_Lasso;
     }
     Rcpp::Rcout << "Before the algorithm:" << std::endl;
