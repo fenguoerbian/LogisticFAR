@@ -30,8 +30,8 @@ double SoftThresholding(const double z, const double r) {
 }
 
 
-double Penalty_Lasso(const double &input, 
-                     const Eigen::VectorXd &param, 
+double Penalty_Lasso(const double &input,
+                     const Eigen::VectorXd &param,
                      const bool &derivative){
 /*
  * This is Lasso penalty on one double input.
@@ -54,8 +54,8 @@ double Penalty_Lasso(const double &input,
 }
 
 
-double Penalty_SCAD(const double &input, 
-                    const Eigen::VectorXd &param, 
+double Penalty_SCAD(const double &input,
+                    const Eigen::VectorXd &param,
                     const bool &derivative){
 /*
  * This is SCAD penalty on one double input.
@@ -101,8 +101,8 @@ double Penalty_SCAD(const double &input,
 }
 
 
-double Penalty_MCP(const double &input, 
-                   const Eigen::VectorXd &param, 
+double Penalty_MCP(const double &input,
+                   const Eigen::VectorXd &param,
                    const bool &derivative){
     /*
      * This is MCP penalty on one double input.
@@ -133,7 +133,7 @@ double Penalty_MCP(const double &input,
             }else if(tmp >= 0){
                 res = lam * tmp - tmp * tmp / 2 / gam;
             }else if(tmp > -gam * lam){
-                res = -lam * tmp - tmp * tmp / 2 / gam;   
+                res = -lam * tmp - tmp * tmp / 2 / gam;
             }else{
                 res = gam * lam * lam / 2;
             }
@@ -142,8 +142,8 @@ double Penalty_MCP(const double &input,
 }
 
 
-Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat, 
-                               const Eigen::VectorXd &delta, 
+Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
+                               const Eigen::VectorXd &delta,
                                const Eigen::VectorXd &eta_stack){
 /*
  *  This function computes the pi(probability) vector for the logistic regression
@@ -171,7 +171,7 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
 
 
 
-Eigen::VectorXd Rowsum_wo_j(const Eigen::VectorXd &eta_stack, const int &j, 
+Eigen::VectorXd Rowsum_wo_j(const Eigen::VectorXd &eta_stack, const int &j,
                             const int &kn, const int &p){
 /*
  * Compute the row sum of eta_mat(coming from eta_stack) without one given column j
@@ -228,18 +228,18 @@ Eigen::VectorXd Rowsum(const Eigen::VectorXd &eta_stack, const int &kn, const in
     return(rowsum);
 }
 
-double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_vec, 
-                    const Eigen::VectorXd &delta_vec, const Eigen::VectorXd &eta_stack_vec, 
-                    const Eigen::VectorXd &mu1_vec, const double &mu2, 
-                    const double &h, const double &kn, const double &p, 
-                    const char &p_type, const Eigen::VectorXd &p_param, 
-                    const double &a, const Eigen::VectorXd &bj_vec, 
+double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_vec,
+                    const Eigen::VectorXd &delta_vec, const Eigen::VectorXd &eta_stack_vec,
+                    const Eigen::VectorXd &mu1_vec, const double &mu2,
+                    const double &h, const double &kn, const double &p,
+                    const char &p_type, const Eigen::VectorXd &p_param,
+                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
                     const bool &oracle_loss, const bool &print_res){
 /*
  *  This function computes the objective value(loss value).
  *  The objective function is consisted of
  *    1. -loglik
- *    2. penalty 
+ *    2. penalty
  *    3. ADMM regulizer
  *  For oracle estimator, there is no penalty term.
  *
@@ -247,12 +247,13 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
     const int n = y_vec.size();
     Eigen::VectorXd coef = Eigen::MatrixXd::Zero(h + p * kn, 1);
     Eigen::VectorXd logit_vec;
-    double loglik, loss_p0, loss_p1, loss_p2, loss;
+    double loglik, loss_p0, loss_p1, loss_p2, loss_p3, loss;
     Eigen::VectorXd eta_rowsum = Rowsum(eta_stack_vec, kn, p);
-    int start_idx;
+    int start_idx, stop_idx;
     Eigen::VectorXd eta_vec;
-    
+
     double (*pfun)(const double &, const Eigen::VectorXd &, const bool &);
+
     // loss part 0, the -loglik
     coef.block(0, 0, h, 1) = delta_vec;
     coef.block(h, 0, p * kn, 1) = eta_stack_vec;
@@ -260,14 +261,26 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
     loglik = (y_vec.array() * logit_vec.array() - log(1 + exp(logit_vec.array()))).sum();
     loglik = loglik / a;
     loss_p0 = -loglik;
-    
+
     // loss part2, the ADMM term
     loss_p2 = mu1_vec.dot(eta_rowsum) + mu2 / 2.0 * eta_rowsum.dot(eta_rowsum);
-    
-    loss = loss_p0 + loss_p2;
+
+    // loss part3, the ridge regularizer
+    loss_p3 = 0.0;
+    for(int i = 0; i < h; i++){
+        loss_p3 = loss_p3 + rj_vec[i] / 2.0 * delta_vec[i] * delta_vec[i];
+    }
+    for(int i = 0; i < p; i++){
+        start_idx = i * kn;
+        // stop_idx = i * kn + h + (kn - 1);
+        eta_vec = eta_stack_vec.block(start_idx, 0, kn, 1);
+        loss_p3 = loss_p3 + rj_vec[h + i] / 2.0 * eta_vec.dot(eta_vec);
+    }
+
+    loss = loss_p0 + loss_p2 + loss_p3;
     if(oracle_loss){
         if(print_res){
-            Rcpp::Rcout << "1 / a * loglik = " << loglik << ", loss_p2 = " << loss_p2 << ", loss = " << loss << std::endl;
+            Rcpp::Rcout << "1 / a * loglik = " << loglik << ", loss_p2 = " << loss_p2 << ", loss_p3 = "<< loss_p3 << ", loss = " << loss << std::endl;
         }
     }else{
         // determine penalty function
@@ -281,32 +294,33 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
             Rcpp::Rcout << "Not found!" << std::endl;
             pfun = Penalty_Lasso;
         }
-        
+
         loss_p1 = 0;
         for(int i = 0; i < p; i++){
             start_idx = i * kn;
             eta_vec = eta_stack_vec.block(start_idx, 0, kn, 1);
-            loss_p1 = loss_p1 + pfun(eta_vec.norm() * bj_vec[i], 
-                                     p_param, false);
+            loss_p1 = loss_p1 + cj_vec[i] * pfun(eta_vec.norm() * bj_vec[i], p_param, false);
         }
         loss = loss + loss_p1;
         if(print_res){
-            Rcpp::Rcout << "1 / a * loglik = " << loglik << ", loss_p1 = " << loss_p1 <<", loss_p2 = " << loss_p2 << ", loss = " << loss << std::endl;
-        }   
+            Rcpp::Rcout << "1 / a * loglik = " << loglik << ", loss_p1 = " << loss_p1 <<", loss_p2 = " << loss_p2 << ", loss_p3 = "<< loss_p3 << ", loss = " << loss << std::endl;
+        }
     }
     return(loss);
 }
 
 // [[Rcpp::export]]
-Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat, 
-                                    const int &h, const int &kn, const int &p, 
-                                    const char &p_type, const Eigen::VectorXd &p_param, 
-                                    const double &mu2, 
-                                    const double &a, const Eigen::VectorXd &bj_vec, 
-                                    const double &tol, const int &max_iter, 
-                                    const Eigen::MatrixXd &h_inv, const Eigen::VectorXd &relax_vec, 
-                                    const Eigen::VectorXd &delta_init, 
-                                    const Eigen::VectorXd &eta_stack_init, 
+Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat,
+                                    const int &h, const int &kn, const int &p,
+                                    const char &p_type, const Eigen::VectorXd &p_param,
+                                    const double &mu2,
+                                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                                    const double &tol, const int &max_iter,
+                                    const Eigen::VectorXd &relax_vec,
+                                    const Eigen::MatrixXd &hd_mat,
+                                    const Eigen::MatrixXd &hd_inv,
+                                    const Eigen::VectorXd &delta_init,
+                                    const Eigen::VectorXd &eta_stack_init,
                                     const Eigen::VectorXd &mu1_init){
 /*
  * This is the core part of logistic FAR solver
@@ -327,8 +341,8 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
  *       bj_vec: numerical vector for parameters in penalty kernel
  *       tol: double tolerence for converge
  *       max_iter: integer, number of max iteration
- *              
- */    
+ *
+ */
     const int n = y_vec.size();    // number of observations(subjects)
     double diff = 1;
     double diff1, diff2;
@@ -341,7 +355,7 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     double lambda;
     double positive_check;
     Rcpp::List res;
-    
+
     // some variables during iteration
     Eigen::VectorXd delta = delta_init;
     Eigen::VectorXd eta_stack = eta_stack_init;
@@ -356,7 +370,7 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     Eigen::VectorXd eta_sum_wo_j;
     Eigen::MatrixXd theta_j;
     Eigen::VectorXd alpha_j;
-    
+
     // Rcpp::Function r_compute_loss("Compute_Loss");    // access R function Compute_Loss
     double (*pfun)(const double &, const Eigen::VectorXd &, const bool &);
     // determine penalty function
@@ -372,38 +386,41 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     }
     Rcpp::Rcout << "Before the algorithm:" << std::endl;
     /*
-    loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat), 
-                                           Rcpp::Named("y_vec", y_vec), 
-                                           Rcpp::Named("delta_vec", delta), 
-                                           Rcpp::Named("eta_stack_vec", eta_stack), 
-                                           Rcpp::Named("mu1_vec", mu1_vec_old), 
-                                           Rcpp::Named("mu_2", mu2), 
-                                           Rcpp::Named("h", h), 
-                                           Rcpp::Named("kn", kn), 
-                                           Rcpp::Named("p", p), 
-                                           Rcpp::Named("p_type", p_type), 
-                                           Rcpp::Named("p_param", p_param), 
-                                           Rcpp::Named("a", a), 
-                                           Rcpp::Named("bj_vec", bj_vec), 
-                                           Rcpp::Named("oracle_loss", false), 
+    loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat),
+                                           Rcpp::Named("y_vec", y_vec),
+                                           Rcpp::Named("delta_vec", delta),
+                                           Rcpp::Named("eta_stack_vec", eta_stack),
+                                           Rcpp::Named("mu1_vec", mu1_vec_old),
+                                           Rcpp::Named("mu_2", mu2),
+                                           Rcpp::Named("h", h),
+                                           Rcpp::Named("kn", kn),
+                                           Rcpp::Named("p", p),
+                                           Rcpp::Named("p_type", p_type),
+                                           Rcpp::Named("p_param", p_param),
+                                           Rcpp::Named("a", a),
+                                           Rcpp::Named("bj_vec", bj_vec),
+                                           Rcpp::Named("oracle_loss", false),
                                            Rcpp::Named("print_res", true)));
      */
-    loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                        mu2, h, kn, p, p_type, p_param, a, bj_vec, false, true);
+    loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            false, true);
+
     while((!converge) && (current_iter <= max_iter) && loss_drop){
         // store the results from last iteration
         delta_old = delta;
         eta_stack_old = eta_stack;
         mu1_vec_old = mu1_vec;
         loss_old = loss;
-        
+
         // step1. get the current pi_vec
         pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old);
-        
+
         // step2. update demographical covariates
-        delta = delta_old - h_inv * (delta_mat.transpose()) * (pi_vec - y_vec);
+        // delta = delta_old - h_inv * (delta_mat.transpose()) * (pi_vec - y_vec);
+        delta = hd_inv * (hd_mat * delta_old - (delta_mat.transpose()) * (pi_vec - y_vec));
         pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old);  // get current pi vector
-        
+
         // step3. update the functional covariates
         for(int j = 0; j < p; j++){
             stack_start_idx = j * kn;
@@ -411,10 +428,12 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
             eta_j_old = eta_stack_old.block(stack_start_idx, 0, kn, 1);
             eta_sum_wo_j = Rowsum_wo_j(eta_stack, j, kn, p);
             theta_j = x_mat.block(0, stack_start_idx + h, n, kn);
-            alpha_j = (relax_vec[j] - mu2) * eta_j_old + 1.0 / a * (theta_j.transpose()) * (y_vec - pi_vec) - mu1_vec_old - mu2 * eta_sum_wo_j;
-            lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j], 
+
+            alpha_j = (relax_vec[j] - mu2 - rj_vec[j + h]) * eta_j_old + 1.0 / a * (theta_j.transpose()) * (y_vec - pi_vec) - mu1_vec_old - mu2 * eta_sum_wo_j;
+            
+            lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j],
                           p_param, true);
-            lambda = bj_vec[j] * lambda;
+            lambda = cj_vec[j] * bj_vec[j] * lambda;
             positive_check = 1 - lambda / sqrt(alpha_j.dot(alpha_j));
             if(positive_check <= 0){
                 eta_stack.block(stack_start_idx, 0, kn, 1) = Eigen::MatrixXd::Zero(kn, 1);
@@ -423,34 +442,35 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
             }
             pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack);
         }
-        
+
         // step4. Update mu1
         mu1_vec = mu1_vec_old + mu2 * Rowsum(eta_stack, kn, p);
-        
+
         // check convergency
         current_iter = current_iter + 1;
         diff1 = (delta- delta_old).norm();
         diff2 = (eta_stack - eta_stack_old).norm();
         diff = std::max(diff1, diff2);
         /*
-        loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat), 
-                                               Rcpp::Named("y_vec", y_vec), 
-                                               Rcpp::Named("delta_vec", delta), 
-                                               Rcpp::Named("eta_stack_vec", eta_stack), 
-                                               Rcpp::Named("mu1_vec", mu1_vec), 
-                                               Rcpp::Named("mu_2", mu2), 
-                                               Rcpp::Named("h", h), 
-                                               Rcpp::Named("kn", kn), 
-                                               Rcpp::Named("p", p), 
-                                               Rcpp::Named("p_type", p_type), 
-                                               Rcpp::Named("p_param", p_param), 
-                                               Rcpp::Named("a", a), 
-                                               Rcpp::Named("bj_vec", bj_vec), 
-                                               Rcpp::Named("oracle_loss", false), 
+        loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat),
+                                               Rcpp::Named("y_vec", y_vec),
+                                               Rcpp::Named("delta_vec", delta),
+                                               Rcpp::Named("eta_stack_vec", eta_stack),
+                                               Rcpp::Named("mu1_vec", mu1_vec),
+                                               Rcpp::Named("mu_2", mu2),
+                                               Rcpp::Named("h", h),
+                                               Rcpp::Named("kn", kn),
+                                               Rcpp::Named("p", p),
+                                               Rcpp::Named("p_type", p_type),
+                                               Rcpp::Named("p_param", p_param),
+                                               Rcpp::Named("a", a),
+                                               Rcpp::Named("bj_vec", bj_vec),
+                                               Rcpp::Named("oracle_loss", false),
                                                Rcpp::Named("print_res", false)));
          */
-        loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                                mu2, h, kn, p, p_type, p_param, a, bj_vec, false, false);
+        loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            false, false);
         if(loss > loss_old + 3){
             loss_drop = false;
             if(diff <= tol){
@@ -467,46 +487,49 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
     Rcpp::Rcout << "after the algorithm" << std::endl;
     // Rcpp::Rcout << delta << std::endl;
     /*
-    loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat), 
-                                           Rcpp::Named("y_vec", y_vec), 
-                                           Rcpp::Named("delta_vec", delta), 
-                                           Rcpp::Named("eta_stack_vec", eta_stack), 
-                                           Rcpp::Named("mu1_vec", mu1_vec), 
-                                           Rcpp::Named("mu_2", mu2), 
-                                           Rcpp::Named("h", h), 
-                                           Rcpp::Named("kn", kn), 
-                                           Rcpp::Named("p", p), 
-                                           Rcpp::Named("p_type", p_type), 
-                                           Rcpp::Named("p_param", p_param), 
-                                           Rcpp::Named("a", a), 
-                                           Rcpp::Named("bj_vec", bj_vec), 
-                                           Rcpp::Named("oracle_loss", false), 
+    loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat),
+                                           Rcpp::Named("y_vec", y_vec),
+                                           Rcpp::Named("delta_vec", delta),
+                                           Rcpp::Named("eta_stack_vec", eta_stack),
+                                           Rcpp::Named("mu1_vec", mu1_vec),
+                                           Rcpp::Named("mu_2", mu2),
+                                           Rcpp::Named("h", h),
+                                           Rcpp::Named("kn", kn),
+                                           Rcpp::Named("p", p),
+                                           Rcpp::Named("p_type", p_type),
+                                           Rcpp::Named("p_param", p_param),
+                                           Rcpp::Named("a", a),
+                                           Rcpp::Named("bj_vec", bj_vec),
+                                           Rcpp::Named("oracle_loss", false),
                                            Rcpp::Named("print_res", true)));
      */
-    loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, false, true);
+    loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            false, true);
+                            
     res = Rcpp::List::create(
-        Rcpp::Named("delta", delta), 
-        Rcpp::Named("eta_stack", eta_stack), 
-        Rcpp::Named("mu_1_vec", mu1_vec), 
-        Rcpp::Named("iter_num", current_iter), 
-        Rcpp::Named("converge", converge), 
+        Rcpp::Named("delta", delta),
+        Rcpp::Named("eta_stack", eta_stack),
+        Rcpp::Named("mu1_vec", mu1_vec),
+        Rcpp::Named("iter_num", current_iter),
+        Rcpp::Named("converge", converge),
         Rcpp::Named("loss_drop", loss_drop)
     );
     return(res);
 }
 
-//[[Rcpp::export]]
-Rcpp::List Logistic_FAR_Path_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat, 
-                                  const int &h, const int &kn, const int &p, 
-                                  const char &p_type, Eigen::VectorXd &p_param, 
-                                  const double &mu2, 
-                                  const double &a, const Eigen::VectorXd &bj_vec, 
-                                  const double &tol, const int &max_iter, 
-                                  const Eigen::MatrixXd &h_inv, const Eigen::VectorXd &relax_vec, 
-                                  const Eigen::VectorXd &delta_init, 
-                                  const Eigen::VectorXd &eta_stack_init, 
-                                  const Eigen::VectorXd &mu1_init, 
+
+/* This function is not compatible with the current Solver_Core function
+Rcpp::List Logistic_FAR_Path_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat,
+                                  const int &h, const int &kn, const int &p,
+                                  const char &p_type, Eigen::VectorXd &p_param,
+                                  const double &mu2,
+                                  const double &a, const Eigen::VectorXd &bj_vec,
+                                  const double &tol, const int &max_iter,
+                                  const Eigen::MatrixXd &h_inv, const Eigen::VectorXd &relax_vec,
+                                  const Eigen::VectorXd &delta_init,
+                                  const Eigen::VectorXd &eta_stack_init,
+                                  const Eigen::VectorXd &mu1_init,
                                   const Eigen::VectorXd &lambda_seq){
     const int n = y_vec.size();
     const int lam_len = lambda_seq.size();
@@ -516,17 +539,17 @@ Rcpp::List Logistic_FAR_Path_Core(const Eigen::VectorXd &y_vec, const Eigen::Mat
     Eigen::VectorXi iter_num_path = Eigen::MatrixXi::Zero(lam_len, 1);
     Eigen::VectorXi converge_path = Eigen::MatrixXi::Zero(lam_len, 1);
     Eigen::VectorXi loss_drop_path = Eigen::MatrixXi::Zero(lam_len, 1);
-    
+
     Eigen::VectorXd delta_old = delta_init;
     Eigen::VectorXd eta_stack_old = eta_stack_init;
     Eigen::VectorXd mu1_old = mu1_init;
-    
+
     Rcpp::List far_res;
     Rcpp::List far_path_res;
     for(int i = 0; i < lam_len; i++){
         p_param[0] = lambda_seq[i];
-        far_res = Logistic_FAR_Solver_Core(y_vec, x_mat, h, kn, p, p_type, p_param, 
-                                           mu2, a, bj_vec, tol, max_iter, h_inv, relax_vec, 
+        far_res = Logistic_FAR_Solver_Core(y_vec, x_mat, h, kn, p, p_type, p_param,
+                                           mu2, a, bj_vec, tol, max_iter, h_inv, relax_vec,
                                            delta_old, eta_stack_old, mu1_old);
         delta_path.row(i) = Rcpp::as<Eigen::VectorXd>(far_res["delta"]);
         eta_stack_path.row(i) = Rcpp::as<Eigen::VectorXd>(far_res["eta_stack"]);
@@ -534,37 +557,39 @@ Rcpp::List Logistic_FAR_Path_Core(const Eigen::VectorXd &y_vec, const Eigen::Mat
         iter_num_path[i] = Rcpp::as<int>(far_res["iter_num"]);
         converge_path[i] = Rcpp::as<int>(far_res["converge"]);
         loss_drop_path[i] = Rcpp::as<int>(far_res["loss_drop"]);
-        
+
         delta_old = Rcpp::as<Eigen::VectorXd>(far_res["delta"]);
         eta_stack_old = Rcpp::as<Eigen::VectorXd>(far_res["eta_stack"]);
         mu1_old = Rcpp::as<Eigen::VectorXd>(far_res["mu_1_vec"]);
-        
+
         Rcpp::Rcout << "Lambda ID = " << i << ", lambda = " << lambda_seq[i] << " finished!" << std::endl;
     }
     far_path_res = Rcpp::List::create(
         Rcpp::Named("delta_path", delta_path),
         Rcpp::Named("eta_stack_path", eta_stack_path),
         Rcpp::Named("mu_1_path", mu1_path),
-        Rcpp::Named("iter_num_path", iter_num_path), 
-        Rcpp::Named("converge_path", converge_path), 
-        Rcpp::Named("loss_drop_path", loss_drop_path), 
+        Rcpp::Named("iter_num_path", iter_num_path),
+        Rcpp::Named("converge_path", converge_path),
+        Rcpp::Named("loss_drop_path", loss_drop_path),
         Rcpp::Named("lambda_seq", lambda_seq)
     );
     return(far_path_res);
 }
 
+*/
+
 /*
  ******------ Functions for the witnin-group orthonormalization implementation ------******
  */
-Eigen::VectorXd Rowsum_Ortho(const Eigen::VectorXd &eta_stack_vec, 
-                             const Eigen::MatrixXd &t_mat_stack, 
+Eigen::VectorXd Rowsum_Ortho(const Eigen::VectorXd &eta_stack_vec,
+                             const Eigen::MatrixXd &t_mat_stack,
                              const Eigen::VectorXd &start_id_vec){
     /*
-     * 
+     *
      */
     const int kn = t_mat_stack.rows();    // length of the original basis expression vector
     const int p = start_id_vec.size() - 1;    // number of functional covariates
-    int start_idx = 0; 
+    int start_idx = 0;
     int stop_idx = 0;
     Eigen::VectorXd eta_vec;
     Eigen::MatrixXd t_mat;
@@ -573,7 +598,7 @@ Eigen::VectorXd Rowsum_Ortho(const Eigen::VectorXd &eta_stack_vec,
     // for(int i = 0; i < p; i++){
     //     start_idx = start_id_vec[i];
     //     stop_idx = start_id_vec[i + 1] - 1;
-    //     
+    //
     //     eta_vec = eta_stack_vec.block(start_idx, 0, stop_idx - start_idx + 1, 1);
     //     t_mat = t_mat_stack.block(0, start_idx, kn, stop_idx - start_idx + 1);
     //     res = res + t_mat * eta_vec;
@@ -581,16 +606,16 @@ Eigen::VectorXd Rowsum_Ortho(const Eigen::VectorXd &eta_stack_vec,
     return(res);
 }
 
-Eigen::VectorXd Rowsum_Ortho_wo_j(const Eigen::VectorXd &eta_stack_vec, 
-                                  const Eigen::MatrixXd &t_mat_stack, 
-                                  const Eigen::VectorXd &start_id_vec, 
+Eigen::VectorXd Rowsum_Ortho_wo_j(const Eigen::VectorXd &eta_stack_vec,
+                                  const Eigen::MatrixXd &t_mat_stack,
+                                  const Eigen::VectorXd &start_id_vec,
                                   const int &j){
     /*
-     * 
+     *
      */
     const int kn = t_mat_stack.rows();    // length of the original basis expression vector
     const int p = start_id_vec.size() - 1;    // number of functional covariates
-    int start_idx = 0; 
+    int start_idx = 0;
     int stop_idx = 0;
     Eigen::VectorXd eta_vec;
     Eigen::MatrixXd t_mat;
@@ -598,7 +623,7 @@ Eigen::VectorXd Rowsum_Ortho_wo_j(const Eigen::VectorXd &eta_stack_vec,
     for(int i = 0; i < j; i++){
         start_idx = start_id_vec[i];
         stop_idx = start_id_vec[i + 1] - 1;
-        
+
         eta_vec = eta_stack_vec.block(start_idx, 0, stop_idx - start_idx + 1, 1);
         t_mat = t_mat_stack.block(0, start_idx, kn, stop_idx - start_idx + 1);
         res = res + t_mat * eta_vec;
@@ -606,7 +631,7 @@ Eigen::VectorXd Rowsum_Ortho_wo_j(const Eigen::VectorXd &eta_stack_vec,
     for(int i = j + 1; i < p; i++){
         start_idx = start_id_vec[i];
         stop_idx = start_id_vec[i + 1] - 1;
-        
+
         eta_vec = eta_stack_vec.block(start_idx, 0, stop_idx - start_idx + 1, 1);
         t_mat = t_mat_stack.block(0, start_idx, kn, stop_idx - start_idx + 1);
         res = res + t_mat * eta_vec;
@@ -614,20 +639,20 @@ Eigen::VectorXd Rowsum_Ortho_wo_j(const Eigen::VectorXd &eta_stack_vec,
     return(res);
 }
 
-double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_vec, 
-                              const Eigen::VectorXd &delta_vec, const Eigen::VectorXd &eta_stack_vec, 
-                              const Eigen::VectorXd &mu1_vec, const double &mu2, 
-                              const double &h, const double &kn, const double &p, 
-                              const char &p_type, const Eigen::VectorXd &p_param, 
-                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
-                              const Eigen::MatrixXd &t_mat_stack, 
-                              const Eigen::VectorXd &start_id_vec, 
+double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_vec,
+                              const Eigen::VectorXd &delta_vec, const Eigen::VectorXd &eta_stack_vec,
+                              const Eigen::VectorXd &mu1_vec, const double &mu2,
+                              const double &h, const double &kn, const double &p,
+                              const char &p_type, const Eigen::VectorXd &p_param,
+                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                              const Eigen::MatrixXd &t_mat_stack,
+                              const Eigen::VectorXd &start_id_vec,
                               const bool &oracle_loss, const bool &print_res){
     /*
      *  This function computes the objective value(loss value).
      *  The objective function is consisted of
      *    1. -loglik
-     *    2. penalty 
+     *    2. penalty
      *    3. ADMM regulizer
      *    4. ridge-like regularizer
      *  For oracle estimator, there is no penalty term.
@@ -639,14 +664,14 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
     Eigen::VectorXd coef = Eigen::MatrixXd::Zero(h + len, 1);
     Eigen::VectorXd logit_vec;
     double loglik, loss_p0, loss_p1, loss_p2, loss_p3, loss;
-    
-    Eigen::VectorXd eta_rowsum = t_mat_stack * eta_stack_vec; 
-    
+
+    Eigen::VectorXd eta_rowsum = t_mat_stack * eta_stack_vec;
+
     int start_idx, stop_idx;
     Eigen::VectorXd eta_vec;
-    
+
     double (*pfun)(const double &, const Eigen::VectorXd &, const bool &);
-    
+
     // loss part 0, the -loglik
     coef.block(0, 0, h, 1) = delta_vec;
     coef.block(h, 0, len, 1) = eta_stack_vec;
@@ -654,11 +679,11 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
     loglik = (y_vec.array() * logit_vec.array() - log(1 + exp(logit_vec.array()))).sum();
     loglik = loglik / a;
     loss_p0 = -loglik;
-    
+
     // loss part2, the ADMM term
     loss_p2 = mu1_vec.dot(eta_rowsum) + mu2 / 2.0 * eta_rowsum.dot(eta_rowsum);
-    
-    // loss part3, the ridge regularizer 
+
+    // loss part3, the ridge regularizer
     loss_p3 = 0.0;
     for(int i = 0; i < h; i++){
         loss_p3 = loss_p3 + rj_vec[i] / 2.0 * delta_vec[i] * delta_vec[i];
@@ -669,7 +694,7 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
         eta_vec = eta_stack_vec.block(start_idx, 0, stop_idx - start_idx + 1, 1);
         loss_p3 = loss_p3 + rj_vec[i + h] / 2.0 * eta_vec.dot(eta_vec);
     }
-    
+
     loss = loss_p0 + loss_p2 + loss_p3;
     if(oracle_loss){
         if(print_res){
@@ -687,7 +712,7 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
             Rcpp::Rcout << "Not found!" << std::endl;
             pfun = Penalty_Lasso;
         }
-        
+
         loss_p1 = 0;
         for(int i = 0; i < p; i++){
             start_idx = start_id_vec[i];
@@ -698,27 +723,27 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
         loss = loss + loss_p1;
         if(print_res){
             Rcpp::Rcout << "1 / a * loglik = " << loglik << ", loss_p1 = " << loss_p1 <<", loss_p2 = " << loss_p2 << ", loss_p3 = "<< loss_p3 << ", loss = " << loss << std::endl;
-        }   
+        }
     }
     return(loss);
 }
 
 
 // [[Rcpp::export]]
-Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat, 
-                                          const int &h, const int &kn, const int &p, 
-                                          const char &p_type, const Eigen::VectorXd &p_param, 
-                                          const double &mu2, 
-                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
-                                          const double &tol, const int &max_iter, 
-                                          const Eigen::VectorXd &relax_vec, 
-                                          const Eigen::MatrixXd &t_mat_stack, 
-                                          const Eigen::VectorXd &svd_vec_stack, 
-                                          const Eigen::VectorXd &start_id_vec, 
-                                          const Eigen::MatrixXd &hd_mat, 
-                                          const Eigen::MatrixXd &hd_inv, 
-                                          const Eigen::VectorXd &delta_init, 
-                                          const Eigen::VectorXd &eta_stack_init, 
+Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::MatrixXd &x_mat,
+                                          const int &h, const int &kn, const int &p,
+                                          const char &p_type, const Eigen::VectorXd &p_param,
+                                          const double &mu2,
+                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                                          const double &tol, const int &max_iter,
+                                          const Eigen::VectorXd &relax_vec,
+                                          const Eigen::MatrixXd &t_mat_stack,
+                                          const Eigen::VectorXd &svd_vec_stack,
+                                          const Eigen::VectorXd &start_id_vec,
+                                          const Eigen::MatrixXd &hd_mat,
+                                          const Eigen::MatrixXd &hd_inv,
+                                          const Eigen::VectorXd &delta_init,
+                                          const Eigen::VectorXd &eta_stack_init,
                                           const Eigen::VectorXd &mu1_init){
     /*
      * This is the core part of logistic FAR orthogonal solver
@@ -739,8 +764,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
      *       bj_vec: numerical vector for parameters in penalty kernel
      *       tol: double tolerence for converge
      *       max_iter: integer, number of max iteration
-     *              
-     */    
+     *
+     */
     const int n = y_vec.size();    // number of observations(subjects)
     double diff = 1;
     double diff1, diff2;
@@ -753,7 +778,7 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
     double lambda;
     double positive_check;
     Rcpp::List res;
-    
+
     // some variables during iteration
     Eigen::VectorXd delta = delta_init;
     Eigen::VectorXd eta_stack = eta_stack_init;
@@ -770,7 +795,7 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
     Eigen::VectorXd alpha_j;
     Eigen::VectorXd dj_vec;    // singular value vector for the j-th functional part
     Eigen::MatrixXd tj_mat;    // transformation matrix for the j-th functional part
-    
+
     double (*pfun)(const double &, const Eigen::VectorXd &, const bool &);
     // determine penalty function
     if(p_type == 'L'){
@@ -784,9 +809,9 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         pfun = Penalty_Lasso;
     }
     Rcpp::Rcout << "Before the algorithm:" << std::endl;
-    loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                  t_mat_stack, start_id_vec, 
+    loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                  t_mat_stack, start_id_vec,
                                   false, true);
     while((!converge) && (current_iter < max_iter) && loss_drop){
         // store the results from last iteration
@@ -794,17 +819,17 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         eta_stack_old = eta_stack;
         mu1_vec_old = mu1_vec;
         loss_old = loss;
-        
+
         // step1. get the current pi_vec
         pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old);
-        
+
         // step2. update demographical covariates
         // delta = delta_old - h_inv * (delta_mat.transpose()) * (pi_vec - y_vec);
         // Rcpp::Rcout << "before delta" << delta[0] << std::endl;
         delta = hd_inv * (hd_mat * delta_old - (delta_mat.transpose()) * (pi_vec - y_vec));
         // Rcpp::Rcout << "after delta" << delta[0] << std::endl;
         pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old);  // get current pi vector
-        
+
         // step3. update the functional covariates
         // Rcpp::Rcout << "before eta" << eta_stack.transpose() << std::endl;
         for(int j = 0; j < p; j++){
@@ -813,14 +838,14 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
             eta_j_old = eta_stack_old.block(stack_start_idx, 0, stack_stop_idx - stack_start_idx + 1, 1);
             eta_sum_wo_j = Rowsum_Ortho_wo_j(eta_stack, t_mat_stack, start_id_vec, j);
             theta_j = x_mat.block(0, stack_start_idx + h, n, stack_stop_idx - stack_start_idx + 1);
-            
+
             dj_vec = svd_vec_stack.block(stack_start_idx, 0, stack_stop_idx - stack_start_idx + 1, 1);
             tj_mat = t_mat_stack.block(0, stack_start_idx, kn, stack_stop_idx - stack_start_idx + 1);
-            
-            dj_vec = relax_vec[j] - rj_vec[j] - a * mu2 * dj_vec.array().pow(-2);
+
+            dj_vec = relax_vec[j] - rj_vec[j + h] - a * mu2 * dj_vec.array().pow(-2);
             alpha_j = dj_vec.cwiseProduct(eta_j_old) + 1.0 / a * (theta_j.transpose()) * (y_vec - pi_vec) - tj_mat.transpose() * mu1_vec_old - mu2 * tj_mat.transpose() * eta_sum_wo_j;
-            
-            lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j], 
+
+            lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j],
                           p_param, true);
             lambda = cj_vec[j] * bj_vec[j] * lambda;
             positive_check = 1 - lambda / sqrt(alpha_j.dot(alpha_j));
@@ -834,16 +859,16 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         // Rcpp::Rcout << "after eta" << eta_stack.transpose() << std::endl;
         // step4. Update mu1
         mu1_vec = mu1_vec_old + mu2 * t_mat_stack * eta_stack;
-        
+
         // check convergency
         current_iter = current_iter + 1;
         diff1 = (delta- delta_old).norm();
         diff2 = (eta_stack - eta_stack_old).norm();
         diff = std::max(diff1, diff2);
-        
-        loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                      t_mat_stack, start_id_vec, 
+
+        loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                      t_mat_stack, start_id_vec,
                                       false, false);
         if(loss > loss_old + 3){
             loss_drop = false;
@@ -860,17 +885,17 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
     Rcpp::Rcout << "iter_num = " << current_iter << ", diff1 = " << diff1 << ", diff2 = " << diff2 << ", loss = " << loss << std::endl;
     Rcpp::Rcout << "after the algorithm" << std::endl;
     // Rcpp::Rcout << delta << std::endl;
-    loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec, 
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                  t_mat_stack, start_id_vec, 
+    loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                  t_mat_stack, start_id_vec,
                                   false, true);
 
     res = Rcpp::List::create(
-        Rcpp::Named("delta", delta), 
-        Rcpp::Named("eta_stack", eta_stack), 
-        Rcpp::Named("mu1_vec", mu1_vec), 
-        Rcpp::Named("iter_num", current_iter), 
-        Rcpp::Named("converge", converge), 
+        Rcpp::Named("delta", delta),
+        Rcpp::Named("eta_stack", eta_stack),
+        Rcpp::Named("mu1_vec", mu1_vec),
+        Rcpp::Named("iter_num", current_iter),
+        Rcpp::Named("converge", converge),
         Rcpp::Named("loss_drop", loss_drop)
     );
     return(res);
