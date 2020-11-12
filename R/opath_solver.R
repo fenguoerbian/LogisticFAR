@@ -374,7 +374,7 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
 #' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
 #' set it to 0.001 or even smaller.
 #'
-#' @param  mu2 quadratic term in the ADMM algorithm
+#' @param mu2 quadratic term in the ADMM algorithm
 #'
 #' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
 #' for more information.
@@ -407,7 +407,7 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
 #' @note Although this function will return the index of lambda given the highest
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
-#' lambda since those functions gives more flexibility.
+#' lambda since those functions give more flexibility.
 #'
 #' @note This function conducts cross validation in a sequential manner. For possible
 #' parallel implementation, see \code{Logistic_FAR_CV_opath_par}.
@@ -822,7 +822,7 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
 #' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
 #' set it to 0.001 or even smaller.
 #'
-#' @param  mu2 quadratic term in the ADMM algorithm
+#' @param mu2 quadratic term in the ADMM algorithm
 #'
 #' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
 #' for more information.
@@ -855,7 +855,7 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
 #' @note Although this function will return the index of lambda given the highest
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
-#' lambda since those functions gives more flexibility.
+#' lambda since those functions give more flexibility.
 #'
 #' @note This function utilizes the \code{future} backend and the \code{future.apply}
 #' package. You can set up the \code{future::plan()} according to your needs.

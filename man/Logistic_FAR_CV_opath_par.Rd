@@ -102,7 +102,7 @@ to assess the goodness of the estimations in the solution path.
 Although this function will return the index of lambda given the highest
 averaged loglik on the testsets. It is more recommended to use the stand alone
 \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
-lambda since those functions gives more flexibility.
+lambda since those functions give more flexibility.
 
 This function utilizes the \code{future} backend and the \code{future.apply}
 package. You can set up the \code{future::plan()} according to your needs.
