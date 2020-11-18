@@ -652,7 +652,7 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
 
         }
         print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
-        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished!", sep = ""))
+        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished at pid = ", Sys.getpid(), "!", sep = ""))
     }
 
     # find the lambda with the highest test loglik
@@ -1115,7 +1115,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
             # pb(paste("post selection for folder id = ", cv_id, " finished!", sep = ""))
         }
         print(paste(nfold, "-fold CV, FINISHED at ", cv_id, "/", nfold, sep = ""))
-        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished!", sep = ""))
+        pb(paste(nfold, "-fold CV, folder id = ", cv_id, " finished at pid = ", Sys.getpid(), "!", sep = ""))
         return(loglik_test_mat)
 
     }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p,
