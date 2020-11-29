@@ -1070,9 +1070,9 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
 
         # get training and testing data for current cv_id
         test_id_vec <- which(fold_id_vec == cv_id)
-        x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
+        x_mat_train <- x_mat[-test_id_vec, , drop = FALSE]
         y_vec_train <- y_vec[-test_id_vec]
-        x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
+        x_mat_test <- x_mat[test_id_vec, , drop = FALSE]
         y_vec_test <- y_vec[test_id_vec]
 
         # find solution path on the training set
