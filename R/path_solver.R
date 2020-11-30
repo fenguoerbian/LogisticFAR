@@ -938,7 +938,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         loglik_post_mat <- loglik_test_mat
     }
 
-    pb <- progressr::progressor(along = 1 : nfold)
+    pb <- progressr::progressor(along = 1 : (nfold + 1))    # including the final estimation
     cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
                                                               p_type, p_param, lambda_seq, mu2,
                                                               a, bj_vec, cj_vec, rj_vec,
@@ -982,7 +982,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
                 test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-                loglik_post_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+                loglik_test_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
             }
         }
 
@@ -1014,12 +1014,16 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
                              tol = tol, max_iter = max_iter)
 
+    pb(paste("Computing solution path on the original dataset!"))
     res$cv_id <- lam_id
     res$loglik_test_mat <- loglik_test_mat
     res$fold_id_vec <- fold_id_vec
 
     if(post_selection){
+        # print("post selection")
         lam_post_id <- which.max(colSums(loglik_post_mat))
+        # print(paste("lam_post_id = ", lam_post_id, sep = ""))
+        # print(paste("delta_vec = ", res$delta_path[lam_post_id, ], sep = ""))
         post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
                                                       delta_vec_init = res$delta_path[lam_post_id, ],
                                                       eta_stack_init = res$eta_stack_path[lam_post_id, ],
