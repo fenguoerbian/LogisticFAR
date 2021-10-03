@@ -28,7 +28,7 @@ Logistic_FAR_CV_opath(
   tol,
   max_iter,
   nfold = 5,
-  fold_seed,
+  fold_seed = NULL,
   post_selection = FALSE,
   post_a = 1
 )

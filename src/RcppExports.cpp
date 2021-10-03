@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // Logistic_FAR_Solver_Core
 Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd& y_vec, const Eigen::MatrixXd& x_mat, const int& h, const int& kn, const int& p, const char& p_type, const Eigen::VectorXd& p_param, const double& mu2, const double& a, const Eigen::VectorXd& bj_vec, const Eigen::VectorXd& cj_vec, const Eigen::VectorXd& rj_vec, const double& tol, const int& max_iter, const Eigen::VectorXd& relax_vec, const Eigen::MatrixXd& hd_mat, const Eigen::MatrixXd& hd_inv, const Eigen::VectorXd& delta_init, const Eigen::VectorXd& eta_stack_init, const Eigen::VectorXd& mu1_init);
 RcppExport SEXP _LogisticFAR_Logistic_FAR_Solver_Core(SEXP y_vecSEXP, SEXP x_matSEXP, SEXP hSEXP, SEXP knSEXP, SEXP pSEXP, SEXP p_typeSEXP, SEXP p_paramSEXP, SEXP mu2SEXP, SEXP aSEXP, SEXP bj_vecSEXP, SEXP cj_vecSEXP, SEXP rj_vecSEXP, SEXP tolSEXP, SEXP max_iterSEXP, SEXP relax_vecSEXP, SEXP hd_matSEXP, SEXP hd_invSEXP, SEXP delta_initSEXP, SEXP eta_stack_initSEXP, SEXP mu1_initSEXP) {

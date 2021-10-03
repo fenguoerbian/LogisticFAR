@@ -579,10 +579,20 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
     }
 
     # get fold id
-    if(!missing(fold_seed)){
-        set.seed(fold_seed)
+    # if(!missing(fold_seed)){
+    #     set.seed(fold_seed)
+    # }
+    # fold_id_vec <- sample(rep(seq(nfold), length = n))
+    fold_id_list <- splitTools::create_folds(as.factor(y_vec),
+                                             k = nfold,
+                                             type = "stratified",
+                                             invert = TRUE,
+                                             seed = fold_seed)
+    fold_id_vec <- rep(0, length = n)
+    for(fold_id in 1 : nfold){
+        fold_id_vec[fold_id_list[[fold_id]]] <- fold_id
     }
-    fold_id_vec <- sample(rep(seq(nfold), length = n))
+
     # related variables for cv results
     loglik_test_mat <- matrix(0, nrow = nfold, ncol = lambda_length)    # store the loglik on the test set
     # each row for one test set
@@ -927,10 +937,20 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     }
 
     # get fold id
-    if(!missing(fold_seed)){
-        set.seed(fold_seed)
+    # if(!missing(fold_seed)){
+    #     set.seed(fold_seed)
+    # }
+    # fold_id_vec <- sample(rep(seq(nfold), length = n))
+    fold_id_list <- splitTools::create_folds(as.factor(y_vec),
+                                             k = nfold,
+                                             type = "stratified",
+                                             invert = TRUE,
+                                             seed = fold_seed)
+    fold_id_vec <- rep(0, length = n)
+    for(fold_id in 1 : nfold){
+        fold_id_vec[fold_id_list[[fold_id]]] <- fold_id
     }
-    fold_id_vec <- sample(rep(seq(nfold), length = n))
+
     # related variables for cv results
     loglik_test_mat <- matrix(0, nrow = nfold, ncol = lambda_length)    # store the loglik on the test set
     # each row for one test set
