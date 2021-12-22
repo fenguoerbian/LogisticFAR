@@ -131,12 +131,12 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
             theta_j = x_mat.block(0, stack_start_idx + h, n, kn);
 
             alpha_j = (relax_vec[j] - mu2 - rj_vec[j + h]) * eta_j_old + 1.0 / a * (theta_j.transpose()) * (y_vec - pi_vec) - mu1_vec_old - mu2 * eta_sum_wo_j;
-            
+
             for(int k = 0; k < kn; k++){
-                lambda = pfun(eta_j_old[k] * bj_vec[j], 
+                lambda = pfun(eta_j_old[k] * bj_vec[j],
                               p_param, true);
                 lambda = cj_vec[j] * bj_vec[j] * lambda;
-                eta_stack.block(stack_start_idx + k, 0, 1, 1) = (alpha_j[k], lambda) / relax_vec[j];
+                eta_stack[stack_start_idx + k] = SoftThresholding(alpha_j[k], lambda) / relax_vec[j];
             }
             // lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j],
             //               p_param, true);
@@ -213,7 +213,7 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
     loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
                             mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
                             false, true);
-                            
+
     res = Rcpp::List::create(
         Rcpp::Named("delta", delta),
         Rcpp::Named("eta_stack", eta_stack),
