@@ -132,15 +132,21 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
 
             alpha_j = (relax_vec[j] - mu2 - rj_vec[j + h]) * eta_j_old + 1.0 / a * (theta_j.transpose()) * (y_vec - pi_vec) - mu1_vec_old - mu2 * eta_sum_wo_j;
             
-            lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j],
-                          p_param, true);
-            lambda = cj_vec[j] * bj_vec[j] * lambda;
-            positive_check = 1 - lambda / sqrt(alpha_j.dot(alpha_j));
-            if(positive_check <= 0){
-                eta_stack.block(stack_start_idx, 0, kn, 1) = Eigen::MatrixXd::Zero(kn, 1);
-            }else{
-                eta_stack.block(stack_start_idx, 0, kn, 1) = 1.0 / relax_vec[j] * positive_check * alpha_j;
+            for(int k = 0; k < kn; k++){
+                lambda = pfun(eta_j_old[k] * bj_vec[j], 
+                              p_param, true);
+                lambda = cj_vec[j] * bj_vec[j] * lambda;
+                eta_stack.block(stack_start_idx + k, 0, 1, 1) = (alpha_j[k], lambda) / relax_vec[j];
             }
+            // lambda = pfun(sqrt(eta_j_old.dot(eta_j_old)) * bj_vec[j],
+            //               p_param, true);
+            // lambda = cj_vec[j] * bj_vec[j] * lambda;
+            // positive_check = 1 - lambda / sqrt(alpha_j.dot(alpha_j));
+            // if(positive_check <= 0){
+            //     eta_stack.block(stack_start_idx, 0, kn, 1) = Eigen::MatrixXd::Zero(kn, 1);
+            // }else{
+            //     eta_stack.block(stack_start_idx, 0, kn, 1) = 1.0 / relax_vec[j] * positive_check * alpha_j;
+            // }
             pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack);
         }
 
