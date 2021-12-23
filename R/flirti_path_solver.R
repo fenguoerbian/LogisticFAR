@@ -629,12 +629,12 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
         if(post_selection){
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
-                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
-                                                               delta_vec_init = train_res$delta_path[lam_id, ],
-                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
-                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
-                                                               # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                post_est <-  Logistic_FAR_FLiRTI_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
+                                                                      delta_vec_init = train_res$delta_path[lam_id, ],
+                                                                      eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                                                                      mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                                                                      # mu1_vec_init = rep(0, k_n),
+                                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 # post_res$delta_path[lam_id, ] <- post_est$delta_vec
                 # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
                 # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
@@ -666,12 +666,12 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
 
     if(post_selection){
         lam_post_id <- which.max(colSums(loglik_post_mat))
-        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
-                                                      delta_vec_init = res$delta_path[lam_post_id, ],
-                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
-                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
-                                                      # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        post_est <- Logistic_FAR_FLiRTI_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
+                                                             delta_vec_init = res$delta_path[lam_post_id, ],
+                                                             eta_stack_init = res$eta_stack_path[lam_post_id, ],
+                                                             mu1_vec_init = res$mu_1_path[lam_post_id, ],
+                                                             # mu1_vec_init = rep(0, k_n),
+                                                             mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
@@ -993,12 +993,12 @@ Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         if(post_selection){
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
-                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
-                                                               delta_vec_init = train_res$delta_path[lam_id, ],
-                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
-                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
-                                                               # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                post_est <-  Logistic_FAR_FLiRTI_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
+                                                                      delta_vec_init = train_res$delta_path[lam_id, ],
+                                                                      eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                                                                      mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                                                                      # mu1_vec_init = rep(0, k_n),
+                                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
                 test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
@@ -1044,12 +1044,12 @@ Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         lam_post_id <- which.max(colSums(loglik_post_mat))
         # print(paste("lam_post_id = ", lam_post_id, sep = ""))
         # print(paste("delta_vec = ", res$delta_path[lam_post_id, ], sep = ""))
-        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
-                                                      delta_vec_init = res$delta_path[lam_post_id, ],
-                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
-                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
-                                                      # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        post_est <- Logistic_FAR_FLiRTI_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
+                                                             delta_vec_init = res$delta_path[lam_post_id, ],
+                                                             eta_stack_init = res$eta_stack_path[lam_post_id, ],
+                                                             mu1_vec_init = res$mu_1_path[lam_post_id, ],
+                                                             # mu1_vec_init = rep(0, k_n),
+                                                             mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
