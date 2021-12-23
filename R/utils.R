@@ -672,6 +672,202 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
 }
 
 
+#' Post-selection estimation
+#'
+#' This function performs post-selection estimation on a given solution.
+#'
+#' @param x_mat covariate matrix, consists of two parts.
+#' dim(x_mat) = (n, h + p * kn)
+#' First h columns are for demographical covariates(can include an intercept term)
+#' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param y_vec response vector, 0 for control, 1 for case.
+#' n = length(y_vec) is the number of observations.
+#'
+#' @param h,k_n,p dimension information for the dataset(\code{x_mat}).
+#'
+#' @param delta_vec_init,eta_stack_init,mu1_vec_init Initial values for the algorithm.
+#' This function uses these initial values to find out the active functional covariates.
+#' And the post-selection estimation begins with these initial values.
+#'
+#' @param mu2 quadratic term in the ADMM algorithm
+#'
+#' @param a parameters for the algorithm. The 1st term in the loss function is
+#' \code{1 / a * loglik}. See Algorithm_Details.pdf
+#' for more information.
+#'
+#' @param lam A scalar for the regularize in ridge penalty form in case of model saturation.
+#'
+#' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
+#'
+#' @export
+Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, tol = 10^(-5), max_iter = 1000){
+    # Post selection estimation to further improve the estimation from a solution path
+    # Args: x_mat
+    #       y_vec
+    #       h
+    #       k_n
+    #       p
+    #       delta_vec_init
+    #       eta_stack_init
+    #       mu1_vec_init
+    #       mu2
+    #       a
+    #       lam
+
+    ######------------ prepare the data ------------
+    y_vec <- as.vector(y_vec)
+    x_mat <- as.matrix(x_mat)
+    n <- length(y_vec)    # number of observations
+    if(n != nrow(x_mat)){
+        stop("x_mat and y_vec don't have the same number of observations")
+    }
+    if((h + k_n * p) != ncol(x_mat)){
+        stop("supplied h, k_n or p don't match with column number of x_mat!")
+    }
+
+    # covariate matrix for non-functional covariates
+    delta_mat <- x_mat[, 1 : h, drop = FALSE]
+    h_mat <- 1 / 4 * t(delta_mat) %*% delta_mat
+    delta_inv <- solve(h_mat / a + lam * diag(nrow = h))    # the inverse matrix for updating delta_vec
+
+
+    # covariate matrices for functional covariates
+    # ind_mat stores the starting and stopping index for each functional covariates
+    #   in x_mat. Each row for one functional covariates.
+    # ind_mat also provides starting and stopping indces in eta_stack_vec, just minus h
+    #   since there's no delta part in eta.
+    ind_mat <- matrix(0, nrow = p, ncol = 2)
+    colnames(ind_mat) <- c("start_ind", "stop_ind")
+    rownames(ind_mat) <- paste("v", 1 : p, sep = "")
+    ind_mat[, 1] <- (0 : (p - 1)) * k_n + 1 + h
+    ind_mat[, 2] <- (1 : p) * k_n + h
+
+    # find active functional covariates based on eta_stack_init
+    eta_mat <- matrix(eta_stack_init, nrow = k_n)
+    col_norm <- apply(eta_mat, 2, function(x) sum(x ^ 2))
+    active_idx <- which(col_norm != 0)    # active index for the covariates
+    active_full_idx <- which(eta_stack_init != 0)    # detailed index in the FULL-length(kn * p) vector
+                                                     #   since each covariates have `k_n` coefficients
+
+    ######------------ main algorithm ------------
+    diff <- tol + 1
+    iter_num <- 1
+    delta_vec_old <- delta_vec_init
+    eta_stack_vec <- eta_stack_init
+    mu1_vec <- mu1_vec_init
+
+    # depends on whether there are active functional covariates.
+    if(length(active_idx) == 0){
+        # no active functional covariates
+        # only update the demographical covariates delta
+        while(iter_num <= max_iter && diff > tol){
+            logit_vec <- delta_mat %*% delta_vec_old
+            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
+            diff <- mean((delta_vec - delta_vec_old) ^ 2)
+            iter_num <- iter_num + 1
+            delta_vec_old <- delta_vec
+        }
+    }else{
+        # we found some active functional covariates
+        # construct the corresponding theta_mat, eta_stack_vec and mu1_vec
+        x_active_mat_list <- list() # <- matrix(0, nrow = n, ncol = length(active_idx) * k_n)
+        eta_active_stack_vec_list <- list() # <- rep(0, length(active_idx) * k_n)
+        c_mat_list <- list()
+
+        for(i in 1 : length(active_idx)){
+            idx <- active_idx[i]    # there is active eta elements in covariate[idx]
+
+            # start and stop index in the original x_mat
+            start_ind <- ind_mat[idx, 1]
+            stop_ind <- ind_mat[idx, 2]
+
+            # # start and stop index in the resulting vector/matrix
+            # res_start_ind <- (i - 1) * k_n + 1
+            # res_stop_ind <- i * k_n
+
+            # find active index within this covariate's coefficient vector
+            eta_vec_pick <- eta_stack_init[(start_ind : stop_ind) - h]
+            active_detail_idx <- which(eta_vec_pick)
+
+            # copy the data
+            # x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
+            x_mat_pick <- x_mat[, start_ind : stop_ind, drop = FALSE]
+            x_active_mat_list[[i]] <- x_mat_pick[active_detail_idx, , drop = FALSE]
+
+            # eta_active_stack_vec[res_start_ind : res_stop_ind] <- eta_stack_init[(start_ind : stop_ind) - h]
+            eta_active_stack_vec_list[[i]] <- eta_vec_pick[active_detail_idx]
+
+            c_mat_list[[i]] <- diag(x = 1, nrow = k_n)[, active_detail_idx, drop = FALSE]
+        }
+
+        x_active_mat <- do.call(cbind, x_active_mat_list)
+        eta_active_stack_vec <- do.call(c, eta_active_stack_vec_list)
+        c_mat <- do.call(cbind, c_mat_list)
+        rm(x_active_mat_list, eta_active_stack_vec_list, c_mat_list)
+
+        # c_mat <- matrix(rep(diag(nrow = k_n), length(active_idx)), nrow = k_n)
+        h_mat_eta <- 1 / 4 * t(x_active_mat) %*% x_active_mat
+        eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = k_n * length(active_idx)) + mu2 * t(c_mat) %*% c_mat)
+
+        delta_vec_old <- delta_vec_init
+        eta_active_stack_vec_old <- eta_active_stack_vec
+        mu1_vec_old <- mu1_vec
+        while(iter_num <= max_iter && diff > tol){
+            # update delta
+            logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
+            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
+
+            # update eta
+            logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
+            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+            eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
+
+            # update mu1
+            # eta_mat <- matrix(eta_active_stack_vec, nrow = k_n)
+            # mu1_vec <- mu1_vec_old + mu2 * rowSums(eta_mat)
+            mu1_vec <- mu1_vec_old + mu2 * c_mat %*% eta_active_stack_vec
+
+            diff1 <- mean((delta_vec - delta_vec_old) ^ 2)
+            diff2 <-  mean((eta_active_stack_vec - eta_active_stack_vec_old) ^ 2)
+            diff <- max(diff1, diff2)
+            iter_num <- iter_num + 1
+
+            delta_vec_old <- delta_vec
+            eta_active_stack_vec_old <- eta_active_stack_vec
+            mu1_vec_old <- mu1_vec
+        }
+
+        # save the result back to original form
+        eta_stack_vec[active_full_idx] <- eta_active_stack_vec
+        # for(i in 1 : length(active_idx)){
+        #     idx <- active_idx[i]
+        #     # start and stop index in the original x_mat
+        #     start_ind <- ind_mat[idx, 1]
+        #     stop_ind <- ind_mat[idx, 2]
+        #     # start and stop index in the resulting active vector/matrix
+        #     res_start_ind <- (i - 1) * k_n + 1
+        #     res_stop_ind <- i * k_n
+        #     # copy the result back to original form
+        #     # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+        #     # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+        #     eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+        # }
+    }
+
+    res <- list(delta_vec = delta_vec,
+                eta_stack_vec = eta_stack_vec,
+                mu1_vec = mu1_vec,
+                a = a,
+                regular = lam,
+                iter_num = iter_num,
+                converge = (diff <= tol))
+    return(res)
+}
+
+
 NBZI_Confusion_Mat <- function(adjust_p_vec, alpha_level, pos_id_vec, neg_id_vec){
   pos_check <- adjust_p_vec < alpha_level
   pos_id <- which(pos_check == TRUE)
