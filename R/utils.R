@@ -809,7 +809,7 @@ Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, de
 
         # c_mat <- matrix(rep(diag(nrow = k_n), length(active_idx)), nrow = k_n)
         h_mat_eta <- 1 / 4 * t(x_active_mat) %*% x_active_mat
-        eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = k_n * length(active_idx)) + mu2 * t(c_mat) %*% c_mat)
+        eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = ncol(x_active_mat)) + mu2 * t(c_mat) %*% c_mat)
 
         delta_vec_old <- delta_vec_init
         eta_active_stack_vec_old <- eta_active_stack_vec
