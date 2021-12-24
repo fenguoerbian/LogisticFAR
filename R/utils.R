@@ -789,7 +789,7 @@ Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, de
 
             # find active index within this covariate's coefficient vector
             eta_vec_pick <- eta_stack_init[(start_ind : stop_ind) - h]
-            active_detail_idx <- which(eta_vec_pick)
+            active_detail_idx <- which(eta_vec_pick != 0)
 
             # copy the data
             # x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
