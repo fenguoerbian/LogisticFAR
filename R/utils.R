@@ -794,7 +794,7 @@ Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, de
             # copy the data
             # x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
             x_mat_pick <- x_mat[, start_ind : stop_ind, drop = FALSE]
-            x_active_mat_list[[i]] <- x_mat_pick[active_detail_idx, , drop = FALSE]
+            x_active_mat_list[[i]] <- x_mat_pick[, active_detail_idx, drop = FALSE]
 
             # eta_active_stack_vec[res_start_ind : res_stop_ind] <- eta_stack_init[(start_ind : stop_ind) - h]
             eta_active_stack_vec_list[[i]] <- eta_vec_pick[active_detail_idx]
