@@ -26,6 +26,17 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
     coef.block(0, 0, h, 1) = delta;
     coef.block(h, 0, pkn, 1) = eta_stack;
     logit_vec = x_mat * coef;
+
+    // a save-guard for logit value
+    for(int i = 0; i < logit_vec.size(); i++){
+        if(logit_vec[i] > 500){
+            logit_vec[i] = 500;
+        }else{
+            if(logit_vec[i] <= -500){
+                logit_vec[i] = -500;
+            }
+        }
+    }
     pi_vec = exp(logit_vec.array()) / (1 + exp(logit_vec.array()));
     return(pi_vec);
 }

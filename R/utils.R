@@ -586,6 +586,9 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
         # only update the demographical covariates delta
         while(iter_num <= max_iter && diff > tol){
             logit_vec <- delta_mat %*% delta_vec_old
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
             diff <- mean((delta_vec - delta_vec_old) ^ 2)
@@ -623,11 +626,17 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
         while(iter_num <= max_iter && diff > tol){
             # update delta
             logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
 
             # update eta
             logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
 
@@ -763,6 +772,9 @@ Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, de
         # only update the demographical covariates delta
         while(iter_num <= max_iter && diff > tol){
             logit_vec <- delta_mat %*% delta_vec_old
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
             diff <- mean((delta_vec - delta_vec_old) ^ 2)
@@ -817,11 +829,17 @@ Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, de
         while(iter_num <= max_iter && diff > tol){
             # update delta
             logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
 
             # update eta
             logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
+            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
             eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
 
