@@ -54,7 +54,7 @@
 Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
                                      p_type, p_param,
                                      lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                                     mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6),
+                                     mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6), weight_vec = 1,
                                      delta_init, eta_stack_init, mu1_init,
                                      tol = 10 ^ (-6), max_iter = 500, verbose = TRUE, svd_thresh = 10^{-7}){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
@@ -108,6 +108,25 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
         }
     }
 
+    ### --- check weight_vec --- ###
+    if(is.na(weight_vec)){
+        weight_vec <- 1
+    }
+    if(!all(weight_vec > 0)){
+        stop("weight_vec must be positive!")
+    }
+
+    if(length(weight_vec) == 1){
+        weight_vec <- rep(weight_vec, n)
+    }else{
+        if(length(weight_vec) != n){
+            stop("length of weight_vec does not match n!")
+        }
+    }
+
+    weight_vec <- weight_vec / sum(weight_vec) * n
+    weight_diag_mat <- diag(x = weight_vec, nrow = n)
+
     # ------ This algorithm do not use within-group orthonormalization ------
     # # standardize those grouped covariates in x_mat
     # x_mat_bak <- x_mat    # a back up of x_mat
@@ -124,7 +143,7 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
 
     # ------ covariate matrix for non-functional covariates ------
     delta_mat <- x_mat[, 1 : h, drop = FALSE]
-    hd_mat <- 0.25 * t(delta_mat) %*% delta_mat
+    hd_mat <- 0.25 * t(delta_mat) %*% weight_diag_mat %*% delta_mat
     hd_inv <- solve(hd_mat + diag(a * rj_vec[1 : h], nrow = h))
 
     # ------ covariate matrices for functional covariates ------
@@ -160,7 +179,7 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
         start_idx <- ind_mat[i, 1]
         stop_idx <- ind_mat[i, 2]
         x_mat_i <- x_mat[, start_idx : stop_idx, drop = FALSE]
-        h_mat_i <- 1 / 4 * t(x_mat_i) %*% x_mat_i
+        h_mat_i <- 1 / 4 * t(x_mat_i) %*% weight_diag_mat %*% x_mat_i
         eigen_value_vec <- eigen(h_mat_i, only.values = TRUE)
         eigen_max <- max(eigen_value_vec$values)
         relax_vec[i] <- rj_vec[i + h] + mu2 + eigen_max / a * (1 + 10^(-6))
@@ -280,7 +299,7 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
 
         # conduct the algorithm
         FAR_res <- Logistic_FAR_FLiRTI_Solver_Core(y_vec = y_vec, x_mat = x_mat, h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                                                   mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                                   mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
                                                    tol = tol, max_iter = max_iter,
                                                    relax_vec = relax_vec, hd_mat = hd_mat, hd_inv = hd_inv,
                                                    delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init)
@@ -396,7 +415,7 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
 Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
                                         p_type, p_param,
                                         lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                                        mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                        mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001, weight_vec = weight_vec,
                                         relax_vec,
                                         delta_init, eta_stack_init, mu_1_init,
                                         tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
@@ -452,6 +471,24 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
             stop("length of rj_vec does not match (p + h)!")
         }
     }
+
+    ### --- check weight_vec --- ###
+    if(is.na(weight_vec)){
+        weight_vec <- 1
+    }
+    if(!all(weight_vec > 0)){
+        stop("weight_vec must be positive!")
+    }
+
+    if(length(weight_vec) == 1){
+        weight_vec <- rep(weight_vec, n)
+    }else{
+        if(length(weight_vec) != n){
+            stop("length of weight_vec does not match n!")
+        }
+    }
+
+    weight_vec <- weight_vec / sum(weight_vec) * n
 
     # ------ This algorithm do not use within-group orthonormalization ------
     # # standardize those grouped covariates in x_mat
@@ -606,15 +643,17 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
         test_id_vec <- which(fold_id_vec == cv_id)
         x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
         y_vec_train <- y_vec[-test_id_vec]
+        weight_vec_train <- weight_vec[-test_id_vec]
         x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
         y_vec_test <- y_vec[test_id_vec]
+        weight_vec_test <- weight_vec[test_id_vec]
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FAR_FLiRTI_Path(y_vec = y_vec_train, x_mat = x_mat_train,
                                               h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                               lambda_seq = lambda_seq, mu2 = mu2,
-                                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec_train,
                                               tol = tol, max_iter = max_iter)
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
@@ -754,7 +793,7 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
 Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                             p_type, p_param,
                                             lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                                            mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                            mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001, weight_vec = 1,
                                             relax_vec,
                                             delta_init, eta_stack_init, mu_1_init,
                                             tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
@@ -810,6 +849,24 @@ Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
             stop("length of rj_vec does not match (p + h)!")
         }
     }
+
+    ### --- check weight_vec --- ###
+    if(is.na(weight_vec)){
+        weight_vec <- 1
+    }
+    if(!all(weight_vec > 0)){
+        stop("weight_vec must be positive!")
+    }
+
+    if(length(weight_vec) == 1){
+        weight_vec <- rep(weight_vec, n)
+    }else{
+        if(length(weight_vec) != n){
+            stop("length of weight_vec does not match n!")
+        }
+    }
+
+    weight_vec <- weight_vec / sum(weight_vec) * n
 
     # ------ This algorithm do not use within-group orthonormalization ------
     # # standardize those grouped covariates in x_mat
@@ -969,15 +1026,17 @@ Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         test_id_vec <- which(fold_id_vec == cv_id)
         x_mat_train <- x_mat[-test_id_vec, , drop = FALSE]
         y_vec_train <- y_vec[-test_id_vec]
+        weight_vec_train <- weight_vec[-test_id_vec]
         x_mat_test <- x_mat[test_id_vec, , drop = FALSE]
         y_vec_test <- y_vec[test_id_vec]
+        weight_vec_test <- weight_vec[test_id_vec]
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FAR_FLiRTI_Path(y_vec = y_vec_train, x_mat = x_mat_train,
                                               h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                               lambda_seq = lambda_seq, mu2 = mu2,
-                                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec_train,
                                               tol = tol, max_iter = max_iter)
 
         # test performance on the test set

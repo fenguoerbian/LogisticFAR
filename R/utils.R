@@ -526,7 +526,7 @@ Compute_Loss <- function(x_mat, y_vec, delta_vec, eta_stack_vec, mu1_vec, mu_2, 
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
 #'
 #' @export
-Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, tol = 10^(-5), max_iter = 1000){
+Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, weight_vec = 1,  tol = 10^(-5), max_iter = 1000){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat
     #       y_vec
@@ -551,9 +551,28 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
         stop("supplied h, k_n or p don't match with column number of x_mat!")
     }
 
+    ### --- check weight_vec --- ###
+    if(is.na(weight_vec)){
+      weight_vec <- 1
+    }
+    if(!all(weight_vec > 0)){
+      stop("weight_vec must be positive!")
+    }
+
+    if(length(weight_vec) == 1){
+      weight_vec <- rep(weight_vec, n)
+    }else{
+      if(length(weight_vec) != n){
+        stop("length of weight_vec does not match n!")
+      }
+    }
+
+    weight_vec <- weight_vec / sum(weight_vec) * n
+    weight_diag_mat <- diag(x = weight_vec, nrow = n)
+
     # covariate matrix for non-functional covariates
     delta_mat <- x_mat[, 1 : h, drop = FALSE]
-    h_mat <- 1 / 4 * t(delta_mat) %*% delta_mat
+    h_mat <- 1 / 4 * t(delta_mat) %*% weight_diag_mat %*% delta_mat
     delta_inv <- solve(h_mat / a + lam * diag(nrow = h))    # the inverse matrix for updating delta_vec
 
 
@@ -617,7 +636,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
         }
 
         c_mat <- matrix(rep(diag(nrow = k_n), length(active_idx)), nrow = k_n)
-        h_mat_eta <- 1 / 4 * t(x_active_mat) %*% x_active_mat
+        h_mat_eta <- 1 / 4 * t(x_active_mat) %*% weight_diag_mat %*% x_active_mat
         eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = k_n * length(active_idx)) + mu2 * t(c_mat) %*% c_mat)
 
         delta_vec_old <- delta_vec_init
@@ -630,7 +649,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
             logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
 
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
+            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% weight_diag_mat %*% (y_vec - pi_vec))
 
             # update eta
             logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
@@ -638,7 +657,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
             logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
 
             pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-            eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
+            eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% weight_diag_mat %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
 
             # update mu1
             eta_mat <- matrix(eta_active_stack_vec, nrow = k_n)

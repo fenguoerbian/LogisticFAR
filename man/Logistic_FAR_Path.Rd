@@ -20,6 +20,7 @@ Logistic_FAR_Path(
   bj_vec = 1,
   cj_vec = sqrt(kn),
   rj_vec = 10^(-6),
+  weight_vec = 1,
   delta_init,
   eta_stack_init,
   mu1_init,

@@ -16,6 +16,7 @@ Logistic_FAR_Path_Further_Improve(
   mu2,
   a = 1,
   lam = 0.1,
+  weight_vec = 1,
   tol = 10^(-5),
   max_iter = 1000
 )

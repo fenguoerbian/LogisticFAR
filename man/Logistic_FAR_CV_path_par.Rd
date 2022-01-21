@@ -20,6 +20,7 @@ Logistic_FAR_CV_path_par(
   bj_vec = rep(1/sqrt(kn), p),
   cj_vec = rep(1, p),
   rj_vec = 1e-05,
+  weight_vec = 1,
   relax_vec,
   delta_init,
   eta_stack_init,

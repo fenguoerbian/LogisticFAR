@@ -17,7 +17,7 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
                     const Eigen::VectorXd &mu1_vec, const double &mu2,
                     const double &h, const double &kn, const double &p,
                     const char &p_type, const Eigen::VectorXd &p_param,
-                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, const Eigen::VectorXd &weight_vec, 
                     const bool &oracle_loss, const bool &print_res);
 
 
