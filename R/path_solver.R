@@ -673,7 +673,8 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                                                                eta_stack_init = train_res$eta_stack_path[lam_id, ],
                                                                mu1_vec_init = train_res$mu_1_path[lam_id, ],
                                                                # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                                                               mu2 = mu2, a = post_a, weight_vec = weight_vec_train,
+                                                               lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 # post_res$delta_path[lam_id, ] <- post_est$delta_vec
                 # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
                 # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
@@ -710,7 +711,8 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                                                       eta_stack_init = res$eta_stack_path[lam_post_id, ],
                                                       mu1_vec_init = res$mu_1_path[lam_post_id, ],
                                                       # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                                                      mu2 = mu2, a = post_a, weight_vec = weight_vec,
+                                                      lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
@@ -1018,7 +1020,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     pb <- progressr::progressor(along = 1 : (nfold + 1))    # including the final estimation
     cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
                                                               p_type, p_param, lambda_seq, mu2,
-                                                              a, bj_vec, cj_vec, rj_vec,
+                                                              a, bj_vec, cj_vec, rj_vec, weight_vec,
                                                               post_selection, post_a, fold_id_vec){
         loglik_test_mat <- matrix(data = NA, nrow = 2, ncol = length(lambda_seq))
         rownames(loglik_test_mat) <- c("original", "post_selection")
@@ -1057,7 +1059,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                                                eta_stack_init = train_res$eta_stack_path[lam_id, ],
                                                                mu1_vec_init = train_res$mu_1_path[lam_id, ],
                                                                # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                                                               mu2 = mu2, a = post_a, weight_vec = weight_vec_train,
+                                                               lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
                 test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
@@ -1072,7 +1075,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
 
     }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p,
     p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
-    a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+    a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
     post_selection = post_selection, post_a = post_a, fold_id_vec = fold_id_vec)
 
     ### --- construct the cv result --- ###
@@ -1090,7 +1093,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     res <- Logistic_FAR_Path(y_vec = y_vec, x_mat = x_mat_bak,
                              h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                              lambda_seq = lambda_seq, mu2 = mu2,
-                             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
                              tol = tol, max_iter = max_iter)
 
     pb(paste("Computing solution path on the original dataset!"))
@@ -1108,7 +1111,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                                       eta_stack_init = res$eta_stack_path[lam_post_id, ],
                                                       mu1_vec_init = res$mu_1_path[lam_post_id, ],
                                                       # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                                                      mu2 = mu2, a = post_a, weight_vec = weight_vec,
+                                                      lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
