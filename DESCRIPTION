@@ -1,6 +1,6 @@
 Package: LogisticFAR
 Title: Logistic Functional Additive Regression with log-contrast constrain.
-Version: 0.0.0.9003
+Version: 0.0.0.9004
 Authors@R: 
     person(given = "Chao",
            family = "Cheng",
@@ -22,3 +22,7 @@ Imports:
     future.apply, 
     progressr,
     splitTools
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr

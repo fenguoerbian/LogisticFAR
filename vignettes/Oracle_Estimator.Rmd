@@ -1,0 +1,152 @@
+---
+title: "Oracle Estimator"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Oracle_Estimator}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(LogisticFAR)
+```
+
+## Introduction
+
+In this note we talk about some properties of the oracle estimator. This `LogisticFAR` package deals with high-dimensional logistic regression problem with groupwise-covariate selection feature and sum-to-zero constraint. For the oracle estimator, the important covariates are pre-given, so there's no need for the variable selection part. We just need to perform the logistic regression with sum-to-zero constrant. 
+
+First we generate a toy example:
+
+```{r toy_example}
+set.seed(1024)
+n <- 200
+kn <- 2
+p <- 3
+demox <- matrix(rnorm(n), nrow = n)
+fx <- matrix(rnorm(n * p * kn), nrow = n)
+beta0 <- c(1,    # intercept
+           1,    # demographical covariates
+           1, -2,    # group covaritates 1
+           -2, 1,    # group covariates 2
+           1, 1    # group covariates 3
+           )
+logit0 <- cbind(1, demox, fx) %*% beta0
+pi0 <- exp(logit0) / (1 + exp(logit0))
+y <- rbinom(n, size = 1, prob = pi0)
+```
+
+Here we generate a sample of size `r n`, with `r ncol(demox)` demographical variables and `r p` groups of covariates, each group contains `r kn` covariates. Here we omit other non-important group covariates since they will not be included in the oracle estimator. Note that the group covariate coefficient vector satisfying 
+
+$$
+\sum\limits_{j = 1}^p\bm{\eta}_j = \bm{0}_{kn}.
+$$
+
+## Oracle Estimator
+
+### Fit the model via `glm`
+
+Since the low-dimensional model structure is given, we can safely pick a reference level and fit a non-constraint model via `glm`
+
+```{r glm_est}
+logitx <- cbind(demox, fx[, c(1, 3)] - fx[, 5], fx[, c(2, 4)] - fx[, 6])
+colnames(logitx) <- c("demo", 
+                      "x1_ref5", "x2_ref6", 
+                      "x3_ref5", "x4_ref6")
+glmfit <- glm(y ~ logitx, family = binomial())
+glmfit$coefficients
+```
+
+Here we use the 3rd group as the reference level and the full covariate effect vector would be
+
+```{r glm_est_full}
+glmest <- c(glmfit$coefficients, 
+            -(glmfit$coefficients["logitxx1_ref5"] + glmfit$coefficients["logitxx3_ref5"]), 
+            -(glmfit$coefficients["logitxx2_ref6"] + glmfit$coefficients["logitxx4_ref6"]))
+names(glmest) <- c("intercept", "demo", 
+                   paste("x", 1 : 6, sep = ""))
+glmest
+```
+
+### Fit the model via `LogisticFAR::Logistic_FAR_Path_Further_Improve`
+
+The `LogisticFAR::Logistic_FAR_Path_Further_Improve` used for post-selection estimation is essentially an unpenalized estiamtor, which is suitable for oracle estimation as long as we give the right model structure.
+
+```{r far_est}
+h <- 2    # intercept term is included
+far_x <- cbind(1, demox, fx)
+delta_init <- rep(0, 2)
+eta_init <- rep(0.001, p * kn)
+farfit <- LogisticFAR::Logistic_FAR_Path_Further_Improve(far_x, y, h = h, k_n = kn, p = p, 
+                                                         delta_vec_init = delta_init, 
+                                                         eta_stack_init = eta_init, 
+                                                         mu1_vec_init = rep(0, kn), 
+                                                         a = 1, 
+                                                         weight_vec = 1, 
+                                                         mu2 = 5, 
+                                                         lam = 0.001, tol = 10 ^ (-10))
+farest <- c(farfit$delta_vec, farfit$eta_stack_vec)
+names(farest) <- c("intercept", "demo", 
+                   paste("x", 1 : 6, sep = ""))
+farest
+```
+
+In `LogisticFAR::Logistic_FAR_Path_Further_Improve`, the objective function takes the form
+
+$$
+\frac{-1}{a}\mathrm{loglik}\left(
+\delta, \eta, weight\_vec
+\right)
++ lam * \left(
+\delta^T\delta + \eta^T\eta
+\right)
++ \mu_1\sum\limits_{j = 1}^p\eta_j
++ \frac{\mu_2}{2}\left\|
+\sum\limits_{j = 1}^p\eta_j
+\right\|_2^2
+$$
+
+Therefore `a` and `mu2` controls the balance between MLE and sum-to-zero constraint, `lam` is a robust ridge-type regularizer and `weight_vec` is a weight for each observation. Varying these parameters will lead to different estimators than the `glm` one.
+
+## Check the langrangian condition
+
+By the method of subgradient(or equivalently the KKT condition), we know that the oracel estimator $\hat{\eta}_j^{or}$ satisfies
+
+$$
+\frac{1}{a}X_j^T\left(
+\pi\left(\hat{\eta}^{or}\right) - y
+\right)
++ l^{or}
+= \bm{0}_{kn}
+,\quad\forall j = 1, \cdots, p.
+$$
+
+We can verify this condition for the oracle estimator.
+
+### `glm` fit
+
+```{r verify_glm_est}
+pi_vec_glm <- glmfit$fitted.values
+t(fx) %*% (pi_vec_glm - y)
+```
+
+### `LogisticFAR` fit
+
+```{r verify_far_est}
+pi_vec_far <- exp(far_x %*% c(farfit$delta_vec, farfit$eta_stack_vec)) / (1 + exp(far_x %*% c(farfit$delta_vec, farfit$eta_stack_vec)))
+t(fx) %*% (pi_vec_far - y)
+```
+
+As we can see, they all satisfy this condition(up to some numerical error). The oracle estimator from `glm` based on referencing a group is more accurate than `LogisticFAR` fit since there is a robust regularizer in the `LogisticFAR` objective function also the `tol` and `mu2` should also be adjusted for a more accurate estimator.
+
+__NOTE:__ If we plug-in the real underlying parameters, then we get
+
+```{r plug_in_real_parameters}
+t(fx) %*% (pi0 - y)
+```
