@@ -368,7 +368,7 @@ Confusion_Mat <- function(eta_stack_vec, k_n, pos_id_vec, neg_id_vec){
 }
 
 #' @export
-Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, eta_vec0, k_n){
+Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, eta_vec0, k_n, additional_info = NULL){
   # sim_num <- nrow(delta_mat)
   res <- matrix(0, nrow = 2, ncol = 6)
   colnames(res) <- c("MSE_Logit", "MSE_Delta", "MSE_Eta", "FP", "FN", "FDR")
@@ -419,6 +419,54 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
   res["sd", "FN"] <- sd(fn_vec)
   res["mean", "FDR"] <- mean(fdr_vec)
   res["sd", "FDR"] <- sd(fdr_vec)
+
+  if(!is.null(additional_info)){
+    warning("Currently, computation with `additional_info` is problematic, use carefully!")
+    x_mat_train <- additional_info$x_mat_train
+    y_vec_train <- additional_info$y_vec_train
+    logit_vec_train <- additional_info$logit_vec_train
+
+    x_mat_test <- additional_info$x_mat_test
+    y_vec_test <- additional_info$y_vec_test
+    logit_vec_test <- additional_info$logit_vec_test
+
+    path_len <- nrow(delta_mat)
+
+    res_add <- matrix(0, nrow = path_len, ncol = 8,
+                      dimnames = list(as.character(1 : path_len),
+                                      c("train_cor_p", "train_cor_s", "train_auc", "train_roc",
+                                        "test_cor_p", "test_cor_s", "test_auc", "test_roc")))
+    for(idx in seq(path_len)){
+      delta_vec <- delta_mat[idx, ]
+      eta_stack_vec <- eta_mat[idx, ]
+      logit_train <- x_mat_train %*% c(delta_vec, eta_stack_vec)
+      logit_test <- x_mat_test %*% c(delta_vec, eta_stack_vec)
+      auc_train <- pROC::auc(y_vec_train ~ as.vector(logit_train))
+      roc_train <- attr(auc_train, "roc")
+      auc_test <- pROC::auc(y_vec_test ~ as.vector(logit_test))
+      roc_test <- attr(auc_test, "roc")
+
+      res_add[idx, "train_cor_p"] <- cor(y_vec_train, logit_train, method = "pearson")
+      res_add[idx, "train_cor_s"] <- cor(y_vec_train, logit_train, method = "spearman")
+      res_add[idx, "train_auc"] <- auc_train
+      res_add[idx, "train_roc"] <- max(roc_train$sensitivities + roc_train$specificities)
+
+      res_add[idx, "test_cor_p"] <- cor(y_vec_test, logit_test, method = "pearson")
+      res_add[idx, "test_cor_p"] <- cor(y_vec_test, logit_test, method = "pearson")
+      res_add[idx, "test_auc"] <- auc_test
+      res_add[idx, "test_roc"] <- max(roc_test$sensitivities + roc_test$specificities)
+    }
+
+    sum_res_add <- matrix(0, nrow = 2, ncol = 8,
+                          dimnames = list(c("mean", "sd"),
+                                          c("train_cor_p", "train_cor_s", "train_auc", "train_roc",
+                                            "test_cor_p", "test_cor_s", "test_auc", "test_roc")))
+    sum_res_add["mean", ] <- apply(res_add, 2, mean)
+    sum_res_add["sd", ] <- apply(res_add, 2, sd)
+
+    res <- cbind(res, sum_res_add)
+
+  }
 
   return(res)
 }
@@ -526,7 +574,7 @@ Compute_Loss <- function(x_mat, y_vec, delta_vec, eta_stack_vec, mu1_vec, mu_2, 
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
 #'
 #' @export
-Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, weight_vec = 1,  tol = 10^(-5), max_iter = 1000){
+Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, weight_vec = 1,  tol = 10^(-5), max_iter = 1000, fast_glm = FALSE){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat
     #       y_vec
@@ -593,88 +641,55 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
     active_idx <- which(col_norm != 0)
 
     ######------------ main algorithm ------------
-    diff <- tol + 1
-    iter_num <- 1
-    delta_vec_old <- delta_vec_init
-    eta_stack_vec <- eta_stack_init
-    mu1_vec <- mu1_vec_init
+    if(fast_glm){    # whether to use R's built in glm for a fast computation
+      message("`weight_vec` will be ignored since `fast_glm` is set to `TRUE`!")
+      yf_vec <- as.factor(y_vec)
+      demo_x <- x_mat[, 1 : h, drop = FALSE]
 
-    # depends on whether there are active functional covariates.
-    if(length(active_idx) == 0){
-        # no active functional covariates
-        # only update the demographical covariates delta
-        while(iter_num <= max_iter && diff > tol){
-            logit_vec <- delta_mat %*% delta_vec_old
-            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
-            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+      delta_vec <- delta_vec_init
+      eta_stack_vec <- eta_stack_init
+      mu1_vec <- mu1_vec_init
 
-            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
-            diff <- mean((delta_vec - delta_vec_old) ^ 2)
-            iter_num <- iter_num + 1
-            delta_vec_old <- delta_vec
-        }
-    }else{
-        # we found some active functional covariates
-        # construct the corresponding theta_mat, eta_stack_vec and mu1_vec
+      if(length(active_idx) == 0){
+        # NO active functional covariates
+        # fit the model
+        glmfit <- glm(yf_vec ~ demo_x - 1, family = binomial)
+
+        # save the results
+        delta_vec <- glmfit$coefficients
+        iter_num <- glmfit$iter
+        converge <- glmfit$converged
+
+      }else{
+        # There are some active covariates
+
+        # construct the corresponding x_active_mat
         x_active_mat <- matrix(0, nrow = n, ncol = length(active_idx) * k_n)
-        eta_active_stack_vec <- rep(0, length(active_idx) * k_n)
 
         for(i in 1 : length(active_idx)){
-            idx <- active_idx[i]
-            # start and stop index in the original x_mat
-            start_ind <- ind_mat[idx, 1]
-            stop_ind <- ind_mat[idx, 2]
+          idx <- active_idx[i]
+          # start and stop index in the original x_mat
+          start_ind <- ind_mat[idx, 1]
+          stop_ind <- ind_mat[idx, 2]
 
-            # start and stop index in the resulting vector/matrix
-            res_start_ind <- (i - 1) * k_n + 1
-            res_stop_ind <- i * k_n
+          # start and stop index in the resulting vector/matrix
+          res_start_ind <- (i - 1) * k_n + 1
+          res_stop_ind <- i * k_n
 
-            # copy the data
-            x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
-            eta_active_stack_vec[res_start_ind : res_stop_ind] <- eta_stack_init[(start_ind : stop_ind) - h]
+          # copy the data
+          x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
         }
 
-        c_mat <- matrix(rep(diag(nrow = k_n), length(active_idx)), nrow = k_n)
-        h_mat_eta <- 1 / 4 * t(x_active_mat) %*% weight_diag_mat %*% x_active_mat
-        eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = k_n * length(active_idx)) + mu2 * t(c_mat) %*% c_mat)
+        if(length(active_idx) == 1){
+          warning("Only 1 active group of covariates is found in `eta_stack_vec`! An ordinary glm fit is performed!")
+          # fit the model
+          glmfit <- glm(yf_vec ~ demo_x + x_active_mat - 1, family = binomial)
 
-        delta_vec_old <- delta_vec_init
-        eta_active_stack_vec_old <- eta_active_stack_vec
-        mu1_vec_old <- mu1_vec
-        while(iter_num <= max_iter && diff > tol){
-            # update delta
-            logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
-            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
-            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
-
-            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-            delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% weight_diag_mat %*% (y_vec - pi_vec))
-
-            # update eta
-            logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
-            # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
-            logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
-
-            pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
-            eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% weight_diag_mat %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
-
-            # update mu1
-            eta_mat <- matrix(eta_active_stack_vec, nrow = k_n)
-            mu1_vec <- mu1_vec_old + mu2 * rowSums(eta_mat)
-
-            diff1 <- mean((delta_vec - delta_vec_old) ^ 2)
-            diff2 <-  mean((eta_active_stack_vec - eta_active_stack_vec_old) ^ 2)
-            diff <- max(diff1, diff2)
-            iter_num <- iter_num + 1
-
-            delta_vec_old <- delta_vec
-            eta_active_stack_vec_old <- eta_active_stack_vec
-            mu1_vec_old <- mu1_vec
-        }
-
-        # save the result back to original form
-        for(i in 1 : length(active_idx)){
+          # save the results
+          delta_vec <- glmfit$coefficients[1 : h]
+          eta_active_stack_vec <- glmfit$coefficients[(1 : k_n) + h]
+          # save the eta result back to original form
+          for(i in 1 : length(active_idx)){
             idx <- active_idx[i]
             # start and stop index in the original x_mat
             start_ind <- ind_mat[idx, 1]
@@ -686,7 +701,145 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
             # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
             # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
             eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+          }
+          iter_num <- glmfit$iter
+          converge <- glmfit$converged
+        }else{
+          # Found multiple groups of covariates
+
+          # adjust the covariate matrix, use the last one group as a reference level
+          x_adj_mat <- x_active_mat[, 1 : ((length(active_idx) - 1) * k_n), drop = FALSE]
+          x_ref_mat <- x_active_mat[, (1 : k_n) + (length(active_idx) - 1) * k_n, drop = FALSE]
+          x_adj_mat <- matrix(as.vector(x_adj_mat) - as.vector(x_ref_mat), nrow = n)
+
+          # fit the model
+          glmfit <- glm(yf_vec ~ demo_x + x_adj_mat - 1, family = binomial)
+
+          # save the results
+          delta_vec <- glmfit$coefficients[1 : h]
+          eta_adj_stack_vec <- glmfit$coefficients[-(1 : h)]
+          eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
+          eta_active_stack_vec <- rep(0, k_n * length(active_idx))
+          eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
+          eta_active_stack_vec[(1 : k_n) + ((length(active_idx) - 1) * k_n)] <- eta_ref_vec
+          # save the eta result back to original form
+          for(i in 1 : length(active_idx)){
+            idx <- active_idx[i]
+            # start and stop index in the original x_mat
+            start_ind <- ind_mat[idx, 1]
+            stop_ind <- ind_mat[idx, 2]
+            # start and stop index in the resulting active vector/matrix
+            res_start_ind <- (i - 1) * k_n + 1
+            res_stop_ind <- i * k_n
+            # copy the result back to original form
+            # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+            # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+            eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+          }
+          iter_num <- glmfit$iter
+          converge <- glmfit$converged
         }
+      }
+    }else{
+      diff <- tol + 1
+      iter_num <- 1
+      delta_vec_old <- delta_vec_init
+      eta_stack_vec <- eta_stack_init
+      mu1_vec <- mu1_vec_init
+
+      # depends on whether there are active functional covariates.
+      if(length(active_idx) == 0){
+        # no active functional covariates
+        # only update the demographical covariates delta
+        while(iter_num <= max_iter && diff > tol){
+          logit_vec <- delta_mat %*% delta_vec_old
+          # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+          logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
+          pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+          delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% (y_vec - pi_vec))
+          diff <- mean((delta_vec - delta_vec_old) ^ 2)
+          iter_num <- iter_num + 1
+          delta_vec_old <- delta_vec
+        }
+      }else{
+        # we found some active functional covariates
+        if(length(active_idx) == 1){
+            warning("Only 1 active group of covariates is found in `eta_stack_vec`!")
+        }
+        # construct the corresponding theta_mat, eta_stack_vec and mu1_vec
+        x_active_mat <- matrix(0, nrow = n, ncol = length(active_idx) * k_n)
+        eta_active_stack_vec <- rep(0, length(active_idx) * k_n)
+
+        for(i in 1 : length(active_idx)){
+          idx <- active_idx[i]
+          # start and stop index in the original x_mat
+          start_ind <- ind_mat[idx, 1]
+          stop_ind <- ind_mat[idx, 2]
+
+          # start and stop index in the resulting vector/matrix
+          res_start_ind <- (i - 1) * k_n + 1
+          res_stop_ind <- i * k_n
+
+          # copy the data
+          x_active_mat[, res_start_ind : res_stop_ind] <- x_mat[, start_ind : stop_ind]
+          eta_active_stack_vec[res_start_ind : res_stop_ind] <- eta_stack_init[(start_ind : stop_ind) - h]
+        }
+
+        c_mat <- matrix(rep(diag(nrow = k_n), length(active_idx)), nrow = k_n)
+        h_mat_eta <- 1 / 4 * t(x_active_mat) %*% weight_diag_mat %*% x_active_mat
+        eta_inv <- solve(1 / a * h_mat_eta + lam * diag(nrow = k_n * length(active_idx)) + mu2 * t(c_mat) %*% c_mat)
+
+        delta_vec_old <- delta_vec_init
+        eta_active_stack_vec_old <- eta_active_stack_vec
+        mu1_vec_old <- mu1_vec
+        while(iter_num <= max_iter && diff > tol){
+          # update delta
+          logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
+          # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+          logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
+          pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+          delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% weight_diag_mat %*% (y_vec - pi_vec))
+
+          # update eta
+          logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
+          # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
+          logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
+
+          pi_vec <- exp(logit_vec) / (1 + exp(logit_vec))
+          eta_active_stack_vec <- eta_inv %*% (1 / a * h_mat_eta %*% eta_active_stack_vec_old + 1 / a * t(x_active_mat) %*% weight_diag_mat %*% (y_vec - pi_vec) - t(c_mat) %*% mu1_vec_old)
+
+          # update mu1
+          eta_mat <- matrix(eta_active_stack_vec, nrow = k_n)
+          mu1_vec <- mu1_vec_old + mu2 * rowSums(eta_mat)
+
+          diff1 <- mean((delta_vec - delta_vec_old) ^ 2)
+          diff2 <-  mean((eta_active_stack_vec - eta_active_stack_vec_old) ^ 2)
+          diff <- max(diff1, diff2)
+          iter_num <- iter_num + 1
+
+          delta_vec_old <- delta_vec
+          eta_active_stack_vec_old <- eta_active_stack_vec
+          mu1_vec_old <- mu1_vec
+        }
+
+        # save the result back to original form
+        for(i in 1 : length(active_idx)){
+          idx <- active_idx[i]
+          # start and stop index in the original x_mat
+          start_ind <- ind_mat[idx, 1]
+          stop_ind <- ind_mat[idx, 2]
+          # start and stop index in the resulting active vector/matrix
+          res_start_ind <- (i - 1) * k_n + 1
+          res_stop_ind <- i * k_n
+          # copy the result back to original form
+          # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+          # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+          eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+        }
+      }
+      converge <- diff <= tol
     }
 
     res <- list(delta_vec = delta_vec,
@@ -695,7 +848,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
                 a = a,
                 regular = lam,
                 iter_num = iter_num,
-                converge = (diff <= tol))
+                converge = converge)
     return(res)
 }
 
