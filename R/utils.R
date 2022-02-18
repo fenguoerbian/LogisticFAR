@@ -882,7 +882,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
 #'
 #' @export
-Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, tol = 10^(-5), max_iter = 1000){
+Logistic_FAR_FLiRTI_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, weight_vec = NULL, tol = 10^(-5), max_iter = 1000){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat
     #       y_vec

@@ -18,7 +18,8 @@ Logistic_FAR_Path_Further_Improve(
   lam = 0.1,
   weight_vec = 1,
   tol = 10^(-5),
-  max_iter = 1000
+  max_iter = 1000,
+  fast_glm = FALSE
 )
 }
 \arguments{
