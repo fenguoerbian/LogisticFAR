@@ -21,6 +21,8 @@ Logistic_FAR_CV_path(
   cj_vec = rep(1, p),
   rj_vec = 1e-05,
   weight_vec = 1,
+  logit_weight_vec = 1,
+  weight_already_combine = FALSE,
   relax_vec,
   delta_init,
   eta_stack_init,
@@ -60,6 +62,17 @@ If \code{lambda_seq} is provided, then of course \code{lambda_length = length(la
 
 \item{a, bj_vec, cj_vec, rj_vec}{parameters for the algorithm. See Algorithm_Details.pdf
 for more information.}
+
+\item{weight_vec}{weight vector for each subject.
+The final weight for each subject will be adjusted also by \code{logit_weight_vec}.
+And the summation of the final weight vector is normalized to \code{n}, the sample size.}
+
+\item{logit_weight_vec}{weight vector for each subject when computing the integral in the logit values.
+Each entry should be positive and no more than 1.
+This is a naive method for adjusting for early stop during the interval.}
+
+\item{weight_already_combine}{boolen, indicating whether the \code{weight_vec}
+is already combined with \code(logit_weight_vec) for each subject.}
 
 \item{relax_vec}{not used.}
 

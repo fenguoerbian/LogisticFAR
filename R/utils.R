@@ -574,7 +574,10 @@ Compute_Loss <- function(x_mat, y_vec, delta_vec, eta_stack_vec, mu1_vec, mu_2, 
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
 #'
 #' @export
-Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1, weight_vec = 1,  tol = 10^(-5), max_iter = 1000, fast_glm = FALSE){
+Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
+                                              delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
+                                              weight_vec = 1,  logit_weight_vec = 1, weight_already_combine = FALSE,
+                                              tol = 10^(-5), max_iter = 1000, fast_glm = FALSE){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat
     #       y_vec
@@ -601,18 +604,44 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
 
     ### --- check weight_vec --- ###
     if(is.na(weight_vec)){
-      weight_vec <- 1
+        weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
-      stop("weight_vec must be positive!")
+        stop("weight_vec must be positive!")
     }
 
     if(length(weight_vec) == 1){
-      weight_vec <- rep(weight_vec, n)
+        weight_vec <- rep(weight_vec, n)
     }else{
-      if(length(weight_vec) != n){
-        stop("length of weight_vec does not match n!")
-      }
+        if(length(weight_vec) != n){
+            stop("length of weight_vec does not match n!")
+        }
+    }
+
+    ### --- check logit_weight_vec --- ###
+    if(is.na(logit_weight_vec)){
+        logit_weight_vec <- 1
+    }
+    if(!all(logit_weight_vec > 0)){
+        stop("logit_weight_vec must be positive!")
+    }
+
+    if(!all(logit_weight_vec <= 1)){
+        stop("logit_weight_vec must be no greater than 1!")
+    }
+
+    if(length(logit_weight_vec) == 1){
+        logit_weight_vec <- rep(logit_weight_vec, n)
+    }else{
+        if(length(logit_weight_vec) != n){
+            stop("length of logit_weight_vec does not match n!")
+        }
+    }
+
+    ### --- normalize weight_vec ---
+    if(!weight_already_combine){
+        weight_vec <-weight_vec * logit_weight_vec
+        weight_already_combine <- TRUE
     }
 
     weight_vec <- weight_vec / sum(weight_vec) * n
@@ -795,7 +824,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
         mu1_vec_old <- mu1_vec
         while(iter_num <= max_iter && diff > tol){
           # update delta
-          logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
+          logit_vec <- delta_mat %*% delta_vec_old + (x_active_mat %*% eta_active_stack_vec_old) * logit_weight_vec
+          # logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec_old, eta_active_stack_vec_old)
           # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
           logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
 
@@ -803,7 +833,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p, delta_vec
           delta_vec <- 1 / a * delta_inv %*% (h_mat %*% delta_vec_old + t(delta_mat) %*% weight_diag_mat %*% (y_vec - pi_vec))
 
           # update eta
-          logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
+          logit_vec <- delta_mat %*% delta_vec + (x_active_mat %*% eta_active_stack_vec_old) * logit_weight_vec
+          # logit_vec <- cbind(delta_mat, x_active_mat) %*% c(delta_vec, eta_active_stack_vec_old)
           # save guard logit_vec so that Inf is not produced when computing exp(logit) when computing pi_vec
           logit_vec <- ifelse(abs(logit_vec) > 600, 600 * sign(logit_vec), logit_vec)
 

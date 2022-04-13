@@ -34,10 +34,21 @@
 #' is recommended to set this no smaller than 0.01 (sometimes even 0.05), otherwise you can
 #' set it to 0.001 or even smaller.
 #'
-#' @param  mu2 quadratic term in the ADMM algorithm
+#' @param mu2 quadratic term in the ADMM algorithm
 #'
 #' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
 #' for more information.
+#'
+#' @param weight_vec weight vector for each subject.
+#'   The final weight for each subject will be adjusted also by \code{logit_weight_vec}.
+#'   And the summation of the final weight vector is normalized to \code{n}, the sample size.
+#'
+#' @param logit_weight_vec weight vector for each subject when computing the integral in the logit values.
+#'   Each entry should be positive and no more than 1.
+#'   This is a naive method for adjusting for early stop during the interval.
+#'
+#' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
+#'   is already combined with \code(logit_weight_vec) for each subject.
 #'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
@@ -54,7 +65,8 @@
 Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
                               p_type, p_param,
                               lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                              mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6), weight_vec = 1,
+                              mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6),
+                              weight_vec = 1, logit_weight_vec = 1, weight_already_combine = FALSE,
                               delta_init, eta_stack_init, mu1_init,
                               tol = 10 ^ (-6), max_iter = 500, verbose = TRUE, svd_thresh = 10^{-7}){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
@@ -122,6 +134,32 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
         if(length(weight_vec) != n){
             stop("length of weight_vec does not match n!")
         }
+    }
+
+    ### --- check logit_weight_vec --- ###
+    if(is.na(logit_weight_vec)){
+        logit_weight_vec <- 1
+    }
+    if(!all(logit_weight_vec > 0)){
+        stop("logit_weight_vec must be positive!")
+    }
+
+    if(!all(logit_weight_vec <= 1)){
+        stop("logit_weight_vec must be no greater than 1!")
+    }
+
+    if(length(logit_weight_vec) == 1){
+        logit_weight_vec <- rep(logit_weight_vec, n)
+    }else{
+        if(length(logit_weight_vec) != n){
+            stop("length of logit_weight_vec does not match n!")
+        }
+    }
+
+    ### --- normalize weight_vec ---
+    if(!weight_already_combine){
+        weight_vec <-weight_vec * logit_weight_vec
+        weight_already_combine <- TRUE
     }
 
     weight_vec <- weight_vec / sum(weight_vec) * n
@@ -299,7 +337,8 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
 
         # conduct the algorithm
         FAR_res <- Logistic_FAR_Solver_Core(y_vec = y_vec, x_mat = x_mat, h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                                            mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
+                                            mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                            weight_vec = weight_vec, logit_weight_vec = logit_weight_vec,
                                             tol = tol, max_iter = max_iter,
                                             relax_vec = relax_vec, hd_mat = hd_mat, hd_inv = hd_inv,
                                             delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init)
@@ -382,6 +421,17 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
 #' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
 #' for more information.
 #'
+#' @param weight_vec weight vector for each subject.
+#'   The final weight for each subject will be adjusted also by \code{logit_weight_vec}.
+#'   And the summation of the final weight vector is normalized to \code{n}, the sample size.
+#'
+#' @param logit_weight_vec weight vector for each subject when computing the integral in the logit values.
+#'   Each entry should be positive and no more than 1.
+#'   This is a naive method for adjusting for early stop during the interval.
+#'
+#' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
+#'   is already combined with \code(logit_weight_vec) for each subject.
+#'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
@@ -415,7 +465,8 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
 Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                                  p_type, p_param,
                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                                 mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001, weight_vec = 1,
+                                 mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                 weight_vec = 1, logit_weight_vec = 1, weight_already_combine = FALSE,
                                  relax_vec,
                                  delta_init, eta_stack_init, mu_1_init,
                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
@@ -488,7 +539,34 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
         }
     }
 
+    ### --- check logit_weight_vec --- ###
+    if(is.na(logit_weight_vec)){
+        logit_weight_vec <- 1
+    }
+    if(!all(logit_weight_vec > 0)){
+        stop("logit_weight_vec must be positive!")
+    }
+
+    if(!all(logit_weight_vec <= 1)){
+        stop("logit_weight_vec must be no greater than 1!")
+    }
+
+    if(length(logit_weight_vec) == 1){
+        logit_weight_vec <- rep(logit_weight_vec, n)
+    }else{
+        if(length(logit_weight_vec) != n){
+            stop("length of logit_weight_vec does not match n!")
+        }
+    }
+
+    ### --- normalize weight_vec ---
+    if(!weight_already_combine){
+        weight_vec <-weight_vec * logit_weight_vec
+        weight_already_combine <- TRUE
+    }
+
     weight_vec <- weight_vec / sum(weight_vec) * n
+    weight_diag_mat <- diag(x = weight_vec, nrow = n)
 
     # ------ This algorithm do not use within-group orthonormalization ------
     # # standardize those grouped covariates in x_mat
@@ -644,24 +722,30 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
         x_mat_train <- x_mat_bak[-test_id_vec, , drop = FALSE]
         y_vec_train <- y_vec[-test_id_vec]
         weight_vec_train <- weight_vec[-test_id_vec]
+        logit_weight_vec_train <- logit_weight_vec[-test_id_vec]
         x_mat_test <- x_mat_bak[test_id_vec, , drop = FALSE]
         y_vec_test <- y_vec[test_id_vec]
         weight_vec_test <- weight_vec[test_id_vec]
+        logit_weight_vec_test <- logit_weight_vec[test_id_vec]
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FAR_Path(y_vec = y_vec_train, x_mat = x_mat_train,
                                        h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                        lambda_seq = lambda_seq, mu2 = mu2,
-                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec_train,
+                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                       weight_vec = weight_vec_train,
+                                       logit_weight_vec = logit_weight_vec_train,
+                                       weight_already_combine = weight_already_combine,
                                        tol = tol, max_iter = max_iter)
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
         for(lam_id in 1 : lambda_length){
             delta_vec <- train_res$delta_path[lam_id, ]
             eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
-            test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-            loglik_test_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            test_pi_vec <- as.vector((x_mat_test[, 1 : h, drop = FALSE] %*% delta_vec) + (x_mat_test[, -(1 : h), drop = FALSE] %*% eta_stack_vec) * logit_weight_vec_test)
+            # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+            loglik_test_mat[cv_id, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
         }
 
         # test on testing set based on post-selection estimation
@@ -673,7 +757,10 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                                                                eta_stack_init = train_res$eta_stack_path[lam_id, ],
                                                                mu1_vec_init = train_res$mu_1_path[lam_id, ],
                                                                # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, weight_vec = weight_vec_train,
+                                                               mu2 = mu2, a = post_a,
+                                                               weight_vec = weight_vec_train,
+                                                               logit_weight_vec = logit_weight_vec_train,
+                                                               weight_already_combine = weight_already_combine,
                                                                lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 # post_res$delta_path[lam_id, ] <- post_est$delta_vec
                 # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
@@ -683,8 +770,9 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
 
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
-                test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-                loglik_post_mat[cv_id, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+                test_pi_vec <- as.vector((x_mat_test[, 1 : h, drop = FALSE] %*% delta_vec) + (x_mat_test[, -(1 : h), drop = FALSE] %*% eta_stack_vec) * logit_weight_vec_test)
+                # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+                loglik_post_mat[cv_id, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
             }
 
         }
@@ -698,6 +786,9 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                              h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                              lambda_seq = lambda_seq, mu2 = mu2,
                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                             weight_vec = weight_vec,
+                             logit_weight_vec = logit_weight_vec,
+                             weight_already_combine = weight_already_combine,
                              tol = tol, max_iter = max_iter)
 
     res$cv_id <- lam_id
@@ -711,7 +802,10 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
                                                       eta_stack_init = res$eta_stack_path[lam_post_id, ],
                                                       mu1_vec_init = res$mu_1_path[lam_post_id, ],
                                                       # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, weight_vec = weight_vec,
+                                                      mu2 = mu2, a = post_a,
+                                                      weight_vec = weight_vec,
+                                                      logit_weight_vec = logit_weight_vec,
+                                                      weight_already_combine = weight_already_combine,
                                                       lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
@@ -762,6 +856,17 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
 #' @param a,bj_vec,cj_vec,rj_vec parameters for the algorithm. See Algorithm_Details.pdf
 #' for more information.
 #'
+#' @param weight_vec weight vector for each subject.
+#'   The final weight for each subject will be adjusted also by \code{logit_weight_vec}.
+#'   And the summation of the final weight vector is normalized to \code{n}, the sample size.
+#'
+#' @param logit_weight_vec weight vector for each subject when computing the integral in the logit values.
+#'   Each entry should be positive and no more than 1.
+#'   This is a naive method for adjusting for early stop during the interval.
+#'
+#' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
+#'   is already combined with \code(logit_weight_vec) for each subject.
+#'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
 #' @param tol,max_iter convergence tolerance and max number of iteration of the algorithm.
@@ -795,7 +900,8 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
 Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                      p_type, p_param,
                                      lambda_seq, lambda_length, min_lambda_ratio = 0.01,
-                                     mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001, weight_vec = 1,
+                                     mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
+                                     weight_vec = 1, logit_weight_vec = 1, weight_already_combine = FALSE,
                                      relax_vec,
                                      delta_init, eta_stack_init, mu_1_init,
                                      tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
@@ -868,7 +974,34 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         }
     }
 
+    ### --- check logit_weight_vec --- ###
+    if(is.na(logit_weight_vec)){
+        logit_weight_vec <- 1
+    }
+    if(!all(logit_weight_vec > 0)){
+        stop("logit_weight_vec must be positive!")
+    }
+
+    if(!all(logit_weight_vec <= 1)){
+        stop("logit_weight_vec must be no greater than 1!")
+    }
+
+    if(length(logit_weight_vec) == 1){
+        logit_weight_vec <- rep(logit_weight_vec, n)
+    }else{
+        if(length(logit_weight_vec) != n){
+            stop("length of logit_weight_vec does not match n!")
+        }
+    }
+
+    ### --- normalize weight_vec ---
+    if(!weight_already_combine){
+        weight_vec <-weight_vec * logit_weight_vec
+        weight_already_combine <- TRUE
+    }
+
     weight_vec <- weight_vec / sum(weight_vec) * n
+    weight_diag_mat <- diag(x = weight_vec, nrow = n)
 
     # ------ This algorithm do not use within-group orthonormalization ------
     # # standardize those grouped covariates in x_mat
@@ -1020,7 +1153,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     pb <- progressr::progressor(along = 1 : (nfold + 1))    # including the final estimation
     cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
                                                               p_type, p_param, lambda_seq, mu2,
-                                                              a, bj_vec, cj_vec, rj_vec, weight_vec,
+                                                              a, bj_vec, cj_vec, rj_vec,
+                                                              weight_vec, logit_weight_vec, weight_already_combine,
                                                               post_selection, post_a, fold_id_vec){
         loglik_test_mat <- matrix(data = NA, nrow = 2, ncol = length(lambda_seq))
         rownames(loglik_test_mat) <- c("original", "post_selection")
@@ -1029,16 +1163,21 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         x_mat_train <- x_mat[-test_id_vec, , drop = FALSE]
         y_vec_train <- y_vec[-test_id_vec]
         weight_vec_train <- weight_vec[-test_id_vec]
+        logit_weight_vec_train <- logit_weight_vec[-test_id_vec]
         x_mat_test <- x_mat[test_id_vec, , drop = FALSE]
         y_vec_test <- y_vec[test_id_vec]
         weight_vec_test <- weight_vec[test_id_vec]
+        logit_weight_vec_test <- logit_weight_vec[test_id_vec]
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FAR_Path(y_vec = y_vec_train, x_mat = x_mat_train,
                                        h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                        lambda_seq = lambda_seq, mu2 = mu2,
-                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec_train,
+                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                       weight_vec = weight_vec_train,
+                                       logit_weight_vec = logit_weight_vec,
+                                       weight_already_combine = weight_already_combine,
                                        tol = tol, max_iter = max_iter)
 
         # test performance on the test set
@@ -1046,8 +1185,10 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         for(lam_id in 1 : lambda_length){
             delta_vec <- train_res$delta_path[lam_id, ]
             eta_stack_vec <- train_res$eta_stack_path[lam_id, ]
-            test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-            loglik_test_mat[1, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+            # loglik_test_mat[1, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+            test_pi_vec <- as.vector((x_mat_test[, 1 : h, drop = FALSE] %*% delta_vec) + (x_mat_test[, -(1 : h), drop = FALSE] %*% eta_stack_vec) * logit_weight_vec_test)
+            loglik_test_mat[1, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
         }
 
         # test on testing set based on post-selection estimation
@@ -1059,12 +1200,17 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                                                eta_stack_init = train_res$eta_stack_path[lam_id, ],
                                                                mu1_vec_init = train_res$mu_1_path[lam_id, ],
                                                                # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a, weight_vec = weight_vec_train,
+                                                               mu2 = mu2, a = post_a,
+                                                               weight_vec = weight_vec_train,
+                                                               logit_weight_vec = logit_weight_vec_train,
+                                                               weight_already_combine = weight_already_combine,
                                                                lam = 0.001, tol = 10^{-5}, max_iter = 1000)
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
-                test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
-                loglik_test_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+                # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
+                # loglik_test_mat[2, lam_id] <- sum(y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec)))
+                test_pi_vec <- as.vector((x_mat_test[, 1 : h, drop = FALSE] %*% delta_vec) + (x_mat_test[, -(1 : h), drop = FALSE] %*% eta_stack_vec) * logit_weight_vec_test)
+                loglik_test_mat[2, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
             }
         }
 
@@ -1075,7 +1221,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
 
     }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p,
     p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
-    a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
+    a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+    weight_vec = weight_vec, logit_weight_vec = logit_weight_vec, weight_already_combine = weight_already_combine,
     post_selection = post_selection, post_a = post_a, fold_id_vec = fold_id_vec)
 
     ### --- construct the cv result --- ###
@@ -1093,7 +1240,9 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     res <- Logistic_FAR_Path(y_vec = y_vec, x_mat = x_mat_bak,
                              h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                              lambda_seq = lambda_seq, mu2 = mu2,
-                             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
+                             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                             weight_vec = weight_vec, logit_weight_vec = logit_weight_vec,
+                             weight_already_combine = weight_already_combine,
                              tol = tol, max_iter = max_iter)
 
     pb(paste("Computing solution path on the original dataset!"))
@@ -1111,7 +1260,10 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                                       eta_stack_init = res$eta_stack_path[lam_post_id, ],
                                                       mu1_vec_init = res$mu_1_path[lam_post_id, ],
                                                       # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a, weight_vec = weight_vec,
+                                                      mu2 = mu2, a = post_a,
+                                                      weight_vec = weight_vec,
+                                                      logit_weight_vec = logit_weight_vec,
+                                                      weight_already_combine = weight_already_combine,
                                                       lam = 0.001, tol = 10^{-5}, max_iter = 1000)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
