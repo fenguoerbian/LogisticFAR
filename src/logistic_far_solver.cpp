@@ -13,7 +13,8 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
                                     const int &h, const int &kn, const int &p,
                                     const char &p_type, const Eigen::VectorXd &p_param,
                                     const double &mu2,
-                                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, const Eigen::VectorXd &weight_vec, 
+                                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
+                                    const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
                                     const double &tol, const int &max_iter,
                                     const Eigen::VectorXd &relax_vec,
                                     const Eigen::MatrixXd &hd_mat,
@@ -102,7 +103,8 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
                                            Rcpp::Named("print_res", true)));
      */
     loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                            weight_vec, logit_weight_vec, 
                             false, true);
 
     while((!converge) && (current_iter <= max_iter) && loss_drop){
@@ -113,12 +115,12 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
         loss_old = loss;
 
         // step1. get the current pi_vec
-        pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old);
+        pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old, logit_weight_vec);
 
         // step2. update demographical covariates
         // delta = delta_old - h_inv * (delta_mat.transpose()) * (pi_vec - y_vec);
         delta = hd_inv * (hd_mat * delta_old - (delta_mat.transpose()) * ((pi_vec - y_vec).cwiseProduct(weight_vec)));
-        pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old);  // get current pi vector
+        pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old, logit_weight_vec);  // get current pi vector
 
         // step3. update the functional covariates
         for(int j = 0; j < p; j++){
@@ -139,7 +141,7 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
             }else{
                 eta_stack.block(stack_start_idx, 0, kn, 1) = 1.0 / relax_vec[j] * positive_check * alpha_j;
             }
-            pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack);
+            pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack, logit_weight_vec);
         }
 
         // step4. Update mu1
@@ -168,7 +170,8 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
                                                Rcpp::Named("print_res", false)));
          */
         loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                            weight_vec, logit_weight_vec,  
                             false, false);
         if(loss > loss_old + 3){
             loss_drop = false;
@@ -203,7 +206,8 @@ Rcpp::List Logistic_FAR_Solver_Core(const Eigen::VectorXd &y_vec, const Eigen::M
                                            Rcpp::Named("print_res", true)));
      */
     loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                            weight_vec, logit_weight_vec, 
                             false, true);
 
     res = Rcpp::List::create(

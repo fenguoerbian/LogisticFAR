@@ -5,7 +5,8 @@
 
 Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
                                const Eigen::VectorXd &delta,
-                               const Eigen::VectorXd &eta_stack){
+                               const Eigen::VectorXd &eta_stack, 
+                               const Eigen::VectorXd &logit_weight_vec){
 /*
  *  This function computes the pi(probability) vector for the logistic regression
  *  Args: x_mat: covariate matrix, size = n * (h + kn * p)
@@ -14,6 +15,7 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
  *        eta_stack: coefficient vector for expressed funcitonal covariates
  *                   eta_stack.size() = kn * p
  *                   There are p functional covariates, each one has dimension kn
+ *        logit_weight_vec: a weight vector for adjusting the integral(logit values)
  *  Return: the pi(probability) vector:
  *          logit = x_mat * coef
  *          pi = exp(logit) / (1 + exp(logit))
@@ -37,6 +39,10 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
             }
         }
     }
+    
+    // adjust for the weight vector
+    logit_vec = logit_vec.cwiseProduct(logit_weight_vec);
+    
     pi_vec = exp(logit_vec.array()) / (1 + exp(logit_vec.array()));
     return(pi_vec);
 }
@@ -105,7 +111,8 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
                     const Eigen::VectorXd &mu1_vec, const double &mu2,
                     const double &h, const double &kn, const double &p,
                     const char &p_type, const Eigen::VectorXd &p_param,
-                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, const Eigen::VectorXd &weight_vec, 
+                    const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
+                    const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec,
                     const bool &oracle_loss, const bool &print_res){
 /*
  *  This function computes the objective value(loss value).
@@ -130,6 +137,7 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
     coef.block(0, 0, h, 1) = delta_vec;
     coef.block(h, 0, p * kn, 1) = eta_stack_vec;
     logit_vec = x_mat * coef;
+    logit_vec = logit_vec.cwiseProduct(logit_weight_vec);    // adjust for the logit weight
     loglik = ((y_vec.array() * logit_vec.array() - log(1 + exp(logit_vec.array()))) * weight_vec.array()).sum();
     loglik = loglik / a;
     loss_p0 = -loglik;

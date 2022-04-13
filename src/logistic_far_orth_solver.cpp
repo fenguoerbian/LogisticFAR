@@ -74,7 +74,8 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
                               const Eigen::VectorXd &mu1_vec, const double &mu2,
                               const double &h, const double &kn, const double &p,
                               const char &p_type, const Eigen::VectorXd &p_param,
-                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, const Eigen::VectorXd &weight_vec, 
+                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
+                              const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
                               const Eigen::MatrixXd &t_mat_stack,
                               const Eigen::VectorXd &start_id_vec,
                               const bool &oracle_loss, const bool &print_res){
@@ -106,6 +107,7 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
     coef.block(0, 0, h, 1) = delta_vec;
     coef.block(h, 0, len, 1) = eta_stack_vec;
     logit_vec = x_mat * coef;
+    logit_vec = logit_vec.cwiseProduct(logit_weight_vec);    // adjust for logit weight
     loglik = ((y_vec.array() * logit_vec.array() - log(1 + exp(logit_vec.array()))) * (weight_vec.array())).sum();
     loglik = loglik / a;
     loss_p0 = -loglik;
@@ -164,7 +166,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
                                           const int &h, const int &kn, const int &p,
                                           const char &p_type, const Eigen::VectorXd &p_param,
                                           const double &mu2,
-                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, const Eigen::VectorXd &weight_vec, 
+                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
+                                          const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
                                           const double &tol, const int &max_iter,
                                           const Eigen::VectorXd &relax_vec,
                                           const Eigen::MatrixXd &t_mat_stack,
@@ -240,7 +243,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
     }
     Rcpp::Rcout << "Before the algorithm:" << std::endl;
     loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                                  weight_vec, logit_weight_vec, 
                                   t_mat_stack, start_id_vec,
                                   false, true);
     while((!converge) && (current_iter < max_iter) && loss_drop){
@@ -251,14 +255,14 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         loss_old = loss;
 
         // step1. get the current pi_vec
-        pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old);
+        pi_vec = Compute_Pi_Vec(x_mat, delta_old, eta_stack_old, logit_weight_vec);
 
         // step2. update demographical covariates
         // delta = delta_old - h_inv * (delta_mat.transpose()) * (pi_vec - y_vec);
         // Rcpp::Rcout << "before delta" << delta[0] << std::endl;
         delta = hd_inv * (hd_mat * delta_old - (delta_mat.transpose()) * ((pi_vec - y_vec).cwiseProduct(weight_vec)));
         // Rcpp::Rcout << "after delta" << delta[0] << std::endl;
-        pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old);  // get current pi vector
+        pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack_old, logit_weight_vec);  // get current pi vector
 
         // step3. update the functional covariates
         // Rcpp::Rcout << "before eta" << eta_stack.transpose() << std::endl;
@@ -284,7 +288,7 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
             }else{
                 eta_stack.block(stack_start_idx, 0, stack_stop_idx - stack_start_idx + 1, 1) = 1.0 / relax_vec[j] * positive_check * alpha_j;
             }
-            pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack);
+            pi_vec = Compute_Pi_Vec(x_mat, delta, eta_stack, logit_weight_vec);
         }
         // Rcpp::Rcout << "after eta" << eta_stack.transpose() << std::endl;
         // step4. Update mu1
@@ -297,7 +301,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         diff = std::max(diff1, diff2);
 
         loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                                      weight_vec, logit_weight_vec, 
                                       t_mat_stack, start_id_vec,
                                       false, false);
         if(loss > loss_old + 3){
@@ -316,7 +321,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
     Rcpp::Rcout << "after the algorithm" << std::endl;
     // Rcpp::Rcout << delta << std::endl;
     loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, weight_vec, 
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
+                                  weight_vec, logit_weight_vec, 
                                   t_mat_stack, start_id_vec,
                                   false, true);
 
