@@ -69,7 +69,7 @@ Each entry should be positive and no more than 1.
 This is a naive method for adjusting for early stop during the interval.}
 
 \item{weight_already_combine}{boolen, indicating whether the \code{weight_vec}
-is already combined with \code(logit_weight_vec) for each subject.}
+is already combined with \code{logit_weight_vec} for each subject.}
 
 \item{delta_init, eta_stack_init, mu1_init}{initial values for the algorithm.}
 

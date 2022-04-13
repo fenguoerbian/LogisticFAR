@@ -48,7 +48,7 @@
 #'   This is a naive method for adjusting for early stop during the interval.
 #'
 #' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
-#'   is already combined with \code(logit_weight_vec) for each subject.
+#'   is already combined with \code{logit_weight_vec} for each subject.
 #'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
@@ -430,7 +430,7 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
 #'   This is a naive method for adjusting for early stop during the interval.
 #'
 #' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
-#'   is already combined with \code(logit_weight_vec) for each subject.
+#'   is already combined with \code{logit_weight_vec} for each subject.
 #'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
@@ -865,7 +865,7 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
 #'   This is a naive method for adjusting for early stop during the interval.
 #'
 #' @param weight_already_combine boolen, indicating whether the \code{weight_vec}
-#'   is already combined with \code(logit_weight_vec) for each subject.
+#'   is already combined with \code{logit_weight_vec} for each subject.
 #'
 #' @param delta_init,eta_stack_init,mu1_init initial values for the algorithm.
 #'
