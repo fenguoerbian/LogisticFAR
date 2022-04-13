@@ -20,6 +20,7 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
  *          logit = x_mat * coef
  *          pi = exp(logit) / (1 + exp(logit))
  */
+    const int n = x_mat.rows();
     const int h = delta.size();
     const int pkn = eta_stack.size();
     Eigen::VectorXd coef = Eigen::MatrixXd::Zero(h + pkn, 1);
@@ -27,8 +28,12 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
     Eigen::VectorXd pi_vec;
     coef.block(0, 0, h, 1) = delta;
     coef.block(h, 0, pkn, 1) = eta_stack;
-    logit_vec = x_mat * coef;
-
+    const Eigen::MatrixXd x_delta_mat = x_mat.block(0, 0, n, h);
+    const Eigen::MatrixXd x_eta_mat = x_mat.block(0, h, n, pkn);
+    
+    // logit_vec = x_mat * coef;
+    logit_vec = x_delta_mat * delta + (x_eta_mat * eta_stack).cwiseProduct(logit_weight_vec);    // adjust for the weight vector
+    
     // a safe-guard for logit value
     for(int i = 0; i < logit_vec.size(); i++){
         if(logit_vec[i] > 500){
@@ -40,9 +45,7 @@ Eigen::VectorXd Compute_Pi_Vec(const Eigen::MatrixXd &x_mat,
         }
     }
     
-    // adjust for the weight vector
-    logit_vec = logit_vec.cwiseProduct(logit_weight_vec);
-    
+        
     pi_vec = exp(logit_vec.array()) / (1 + exp(logit_vec.array()));
     return(pi_vec);
 }
@@ -136,8 +139,13 @@ double Compute_Loss_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorXd &y_v
     // loss part 0, the -loglik
     coef.block(0, 0, h, 1) = delta_vec;
     coef.block(h, 0, p * kn, 1) = eta_stack_vec;
-    logit_vec = x_mat * coef;
-    logit_vec = logit_vec.cwiseProduct(logit_weight_vec);    // adjust for the logit weight
+    
+    const Eigen::MatrixXd x_delta_mat = x_mat.block(0, 0, n, h);
+    const Eigen::MatrixXd x_eta_mat = x_mat.block(0, h, n, p * kn);
+    
+    // logit_vec = x_mat * coef;
+    logit_vec = x_delta_mat * delta_vec + (x_eta_mat * eta_stack_vec).cwiseProduct(logit_weight_vec);    // adjust for the weight vector
+
     loglik = ((y_vec.array() * logit_vec.array() - log(1 + exp(logit_vec.array()))) * weight_vec.array()).sum();
     loglik = loglik / a;
     loss_p0 = -loglik;
