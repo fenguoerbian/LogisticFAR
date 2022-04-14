@@ -1176,7 +1176,7 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
                                        lambda_seq = lambda_seq, mu2 = mu2,
                                        a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
                                        weight_vec = weight_vec_train,
-                                       logit_weight_vec = logit_weight_vec,
+                                       logit_weight_vec = logit_weight_vec_train,
                                        weight_already_combine = weight_already_combine,
                                        tol = tol, max_iter = max_iter)
 
