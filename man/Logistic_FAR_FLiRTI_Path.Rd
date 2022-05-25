@@ -27,7 +27,9 @@ Logistic_FAR_FLiRTI_Path(
   tol = 10^(-6),
   max_iter = 500,
   verbose = TRUE,
-  svd_thresh = 10^{     -7 }
+  svd_thresh = 10^{
+     -7
+ }
 )
 }
 \arguments{

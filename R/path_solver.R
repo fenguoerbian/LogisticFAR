@@ -121,7 +121,8 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
@@ -137,7 +138,8 @@ Logistic_FAR_Path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check logit_weight_vec --- ###
-    if(is.na(logit_weight_vec)){
+    if(any(is.na(logit_weight_vec))){
+        message("`logit_weight_vec` contains `NULL`! Set `logit_weight_vec` to 1!")
         logit_weight_vec <- 1
     }
     if(!all(logit_weight_vec > 0)){
@@ -524,7 +526,8 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
@@ -540,7 +543,8 @@ Logistic_FAR_CV_path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check logit_weight_vec --- ###
-    if(is.na(logit_weight_vec)){
+    if(any(is.na(logit_weight_vec))){
+        message("`logit_weight_vec` contains `NULL`! Set `logit_weight_vec` to 1!")
         logit_weight_vec <- 1
     }
     if(!all(logit_weight_vec > 0)){
@@ -959,7 +963,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
@@ -975,7 +980,8 @@ Logistic_FAR_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check logit_weight_vec --- ###
-    if(is.na(logit_weight_vec)){
+    if(any(is.na(logit_weight_vec))){
+        message("`logit_weight_vec` contains `NULL`! Set `logit_weight_vec` to 1!")
         logit_weight_vec <- 1
     }
     if(!all(logit_weight_vec > 0)){

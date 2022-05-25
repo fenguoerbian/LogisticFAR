@@ -109,7 +109,8 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
@@ -299,7 +300,9 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
 
         # conduct the algorithm
         FAR_res <- Logistic_FAR_FLiRTI_Solver_Core(y_vec = y_vec, x_mat = x_mat, h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                                                   mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, weight_vec = weight_vec,
+                                                   mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                                   weight_vec = weight_vec,
+                                                   logit_weight_vec = rep(1, n),    # `logit_weight_vec` in FLiRTI is fixed to 1!
                                                    tol = tol, max_iter = max_iter,
                                                    relax_vec = relax_vec, hd_mat = hd_mat, hd_inv = hd_inv,
                                                    delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init)
@@ -473,7 +476,8 @@ Logistic_FAR_FLiRTI_CV_path <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
@@ -853,7 +857,8 @@ Logistic_FAR_FLiRTI_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     }
 
     ### --- check weight_vec --- ###
-    if(is.na(weight_vec)){
+    if(any(is.na(weight_vec))){
+        message("`weight_vec` contains `NULL`! Set `weight_vec` to 1!")
         weight_vec <- 1
     }
     if(!all(weight_vec > 0)){
