@@ -47,6 +47,11 @@
 #'
 #' @param svd_thresh a small value for threashing the singular value vectors.
 #'
+#' @param verbose integer, indicating level of information to be printed during computation, currently supports:
+#'   always: some info if something went wrong, e.g. when no penalty function is matched
+#'   1: information about the start and stop of the iteration
+#'   2. How the loss value is changed during each iteration
+#'
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path.
@@ -55,7 +60,7 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
                                p_type, p_param, lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                                mu2, a, bj_vec, cj_vec, rj_vec,
                                delta_init, eta_stack_init, mu1_init,
-                               tol = 10^(-6), max_iter = 500, verbose = TRUE, svd_thresh = 10^(-7)){
+                               tol = 10^(-6), max_iter = 500, verbose = 0, svd_thresh = 10^(-7)){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
     # It will use within-group orthonormalization
     # Args: y_vec: response vector, 0 for control, 1 for case.
@@ -299,7 +304,8 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
                                                   svd_vec_stack = svd_vec_stack,
                                                   start_id_vec = start_id_vec - 1, # index in Cpp starts from 0
                                                   hd_mat = hd_mat, hd_inv = hd_inv,
-                                                  delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init)
+                                                  delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init,
+                                                  print_level = verbose)
         # save the result
         delta_path[lam_ind, ] <- FAR_res$delta
         eta_stack_path[lam_ind, ] <- FAR_res$eta_stack
@@ -397,6 +403,11 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
 #'
 #' @param post_a \code{a} for the post selection estimation.
 #'
+#' @param verbose integer, indicating level of information to be printed during computation, currently supports:
+#'   always: some info if something went wrong, e.g. when no penalty function is matched
+#'   1: information about the start and stop of the iteration
+#'   2. How the loss value is changed during each iteration
+#'
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path. Also information of CV is returned such as the fold ID
@@ -418,7 +429,8 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
                                   mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
                                   svd_thresh = 10^(-6), relax_vec,
                                   delta_init, eta_stack_init, mu_1_init,
-                                  tol, max_iter, nfold = 5, fold_seed = NULL, post_selection = FALSE, post_a = 1){
+                                  tol, max_iter, nfold = 5, fold_seed = NULL, post_selection = FALSE, post_a = 1,
+                                  verbose = 0){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
     # It uses cross-validation (based on the largest loglikelihood on the test sets)
     #  to find the best lambda in that lambda sequence
@@ -628,7 +640,7 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
         train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
                                         h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                         lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
-                                        tol = tol, max_iter = max_iter)
+                                        tol = tol, max_iter = max_iter, verbose = verbose)
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
         for(lam_id in 1 : lambda_length){
@@ -670,7 +682,7 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
     res <- Logistic_FAR_OPath(y_vec = y_vec, x_mat = x_mat_bak,
                               h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                               lambda_seq = lambda_seq, mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
-                              tol = tol, max_iter = max_iter)
+                              tol = tol, max_iter = max_iter, verbose = verbose)
 
     res$cv_id <- lam_id
     res$loglik_test_mat <- loglik_test_mat
@@ -855,6 +867,11 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
 #'
 #' @param post_a \code{a} for the post selection estimation.
 #'
+#' @param verbose integer, indicating level of information to be printed during computation, currently supports:
+#'   always: some info if something went wrong, e.g. when no penalty function is matched
+#'   1: information about the start and stop of the iteration
+#'   2. How the loss value is changed during each iteration
+#'
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path. Also information of CV is returned such as the fold ID
@@ -880,7 +897,8 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
                                   mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
                                   svd_thresh = 10^(-6), relax_vec,
                                   delta_init, eta_stack_init, mu_1_init,
-                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1){
+                                  tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1,
+                                  verbose = 0){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
     # It uses cross-validation (based on the largest loglikelihood on the test sets)
     #  to find the best lambda in that lambda sequence
@@ -1081,7 +1099,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
                                            p_type, p_param, lambda_seq, mu2,
                                            a, bj_vec, cj_vec, rj_vec,
                                            svd_thresh, tol, max_iter,
-                                           post_selection, post_a, fold_id_vec){
+                                           post_selection, post_a, fold_id_vec, verbose){
 
         # Rcpp::sourceCpp("logistic_far_solver.cpp", verbose = FALSE)    # a work around when not building this package
         #                                                                # should be removed after the package is built
@@ -1100,7 +1118,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
         train_res <- Logistic_FAR_OPath(y_vec = y_vec_train, x_mat = x_mat_train,
                                         h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                                         lambda_seq = lambda_seq,  mu2= mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
-                                        tol = tol, max_iter = max_iter)
+                                        tol = tol, max_iter = max_iter, verbose = verbose)
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
         for(lam_id in 1 : lambda_length){
@@ -1142,7 +1160,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
     p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
     a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
     svd_thresh = svd_thresh, tol = tol, max_iter = max_iter,
-    post_selection = post_selection, post_a = post_a, fold_id_vec = fold_id_vec)
+    post_selection = post_selection, post_a = post_a, fold_id_vec = fold_id_vec, verbose = verbose)
 
     ### --- construct the cv result --- ###
     for(cv_id in 1 : nfold){
@@ -1158,7 +1176,7 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
     res <- Logistic_FAR_OPath(y_vec = y_vec, x_mat = x_mat_bak,
                               h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
                               lambda_seq = lambda_seq, mu2 = mu2, a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec, svd_thresh = svd_thresh,
-                              tol = tol, max_iter = max_iter)
+                              tol = tol, max_iter = max_iter, verbose = verbose)
 
     res$cv_id <- lam_id
     res$loglik_test_mat <- loglik_test_mat

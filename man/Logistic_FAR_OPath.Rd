@@ -25,7 +25,7 @@ Logistic_FAR_OPath(
   mu1_init,
   tol = 10^(-6),
   max_iter = 500,
-  verbose = TRUE,
+  verbose = 0,
   svd_thresh = 10^(-7)
 )
 }
@@ -61,7 +61,10 @@ for more information.}
 
 \item{tol, max_iter}{convergence tolerance and max number of iteration of the algorithm.}
 
-\item{verbose}{not used}
+\item{verbose}{integer, indicating level of information to be printed during computation, currently supports:
+always: some info if something went wrong, e.g. when no penalty function is matched
+1: information about the start and stop of the iteration
+2. How the loss value is changed during each iteration}
 
 \item{svd_thresh}{a small value for threashing the singular value vectors.}
 

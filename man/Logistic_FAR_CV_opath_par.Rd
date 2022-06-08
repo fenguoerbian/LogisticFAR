@@ -30,7 +30,8 @@ Logistic_FAR_CV_opath_par(
   nfold = 5,
   fold_seed,
   post_selection = FALSE,
-  post_a = 1
+  post_a = 1,
+  verbose = 0
 )
 }
 \arguments{
@@ -78,6 +79,11 @@ Can be useful for reproducible runs.}
 based on post selection estimation results.}
 
 \item{post_a}{\code{a} for the post selection estimation.}
+
+\item{verbose}{integer, indicating level of information to be printed during computation, currently supports:
+always: some info if something went wrong, e.g. when no penalty function is matched
+1: information about the start and stop of the iteration
+2. How the loss value is changed during each iteration}
 
 \item{min_lam_ratio}{\code{min(lambda_seq) / max{lambda_seq}}. This function uses this
 parameter to determine the minimal value of \code{lambda_seq}. If \code{p > n}, then it

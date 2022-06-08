@@ -15,15 +15,16 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
                                            const int &h, const int &kn, const int &p,
                                            const char &p_type, const Eigen::VectorXd &p_param,
                                            const double &mu2,
-                                           const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
-                                           const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
+                                           const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                                           const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec,
                                            const double &tol, const int &max_iter,
                                            const Eigen::VectorXd &relax_vec,
                                            const Eigen::MatrixXd &hd_mat,
                                            const Eigen::MatrixXd &hd_inv,
                                            const Eigen::VectorXd &delta_init,
                                            const Eigen::VectorXd &eta_stack_init,
-                                           const Eigen::VectorXd &mu1_init){
+                                           const Eigen::VectorXd &mu1_init,
+                                           const int &print_level){
 /*
  * This is the core part of logistic FAR solver
  * Args: y_vec: response vector, 0 or 1.
@@ -43,6 +44,10 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
  *       bj_vec: numerical vector for parameters in penalty kernel
  *       tol: double tolerence for converge
  *       max_iter: integer, number of max iteration
+ *       print_level: level of information to be printed
+ *                    always: some info if something went wrong, e.g. when no penalty function is matched
+ *                    1: information about the start and stop of the iteration
+ *                    2. How the loss value is changed during each iteration*
  *
  */
     const int n = y_vec.size();    // number of observations(subjects)
@@ -86,8 +91,10 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
         Rcpp::Rcout << "Penalty not found! Use default Lasso!" << std::endl;
         pfun = Penalty_Lasso;
     }
-    Rcpp::Rcout << "Before the algorithm:" << std::endl;
-    /*
+    if(print_level >= 1){
+        Rcpp::Rcout << "Before the algorithm:" << std::endl;
+    }
+ /*
     loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat),
                                            Rcpp::Named("y_vec", y_vec),
                                            Rcpp::Named("delta_vec", delta),
@@ -105,9 +112,10 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
                                            Rcpp::Named("print_res", true)));
      */
     loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                            weight_vec, logit_weight_vec, 
-                            false, true);
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            weight_vec, logit_weight_vec,
+                            false,
+                            (print_level >= 1));
 
     while((!converge) && (current_iter <= max_iter) && loss_drop){
         // store the results from last iteration
@@ -178,9 +186,10 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
                                                Rcpp::Named("print_res", false)));
          */
         loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                            weight_vec, logit_weight_vec, 
-                            false, false);
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            weight_vec, logit_weight_vec,
+                            false,
+                            (print_level >= 2));
         if(loss > loss_old + 3){
             loss_drop = false;
             if(diff <= tol){
@@ -193,8 +202,11 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
             }
         }
     }
-    Rcpp::Rcout << "iter_num = " << current_iter << ", diff1 = " << diff1 << ", diff2 = " << diff2 << ", loss = " << loss << std::endl;
-    Rcpp::Rcout << "after the algorithm" << std::endl;
+    if(print_level >= 1){
+        Rcpp::Rcout << "iter_num = " << current_iter << ", diff1 = " << diff1 << ", diff2 = " << diff2 << ", loss = " << loss << std::endl;
+        Rcpp::Rcout << "after the algorithm" << std::endl;
+    }
+
     // Rcpp::Rcout << delta << std::endl;
     /*
     loss = Rcpp::as<double>(r_compute_loss(Rcpp::Named("x_mat", x_mat),
@@ -214,9 +226,10 @@ Rcpp::List Logistic_FAR_FLiRTI_Solver_Core(const Eigen::VectorXd &y_vec, const E
                                            Rcpp::Named("print_res", true)));
      */
     loss = Compute_Loss_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                            weight_vec, logit_weight_vec, 
-                            false, true);
+                            mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                            weight_vec, logit_weight_vec,
+                            false,
+                            (print_level >= 1));
 
     res = Rcpp::List::create(
         Rcpp::Named("delta", delta),

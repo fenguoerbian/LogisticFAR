@@ -74,8 +74,8 @@ double Compute_Loss_Ortho_Cpp(const Eigen::MatrixXd &x_mat, const Eigen::VectorX
                               const Eigen::VectorXd &mu1_vec, const double &mu2,
                               const double &h, const double &kn, const double &p,
                               const char &p_type, const Eigen::VectorXd &p_param,
-                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
-                              const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
+                              const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                              const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec,
                               const Eigen::MatrixXd &t_mat_stack,
                               const Eigen::VectorXd &start_id_vec,
                               const bool &oracle_loss, const bool &print_res){
@@ -166,8 +166,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
                                           const int &h, const int &kn, const int &p,
                                           const char &p_type, const Eigen::VectorXd &p_param,
                                           const double &mu2,
-                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec, 
-                                          const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec, 
+                                          const double &a, const Eigen::VectorXd &bj_vec, const Eigen::VectorXd &cj_vec, const Eigen::VectorXd &rj_vec,
+                                          const Eigen::VectorXd &weight_vec, const Eigen::VectorXd &logit_weight_vec,
                                           const double &tol, const int &max_iter,
                                           const Eigen::VectorXd &relax_vec,
                                           const Eigen::MatrixXd &t_mat_stack,
@@ -177,7 +177,8 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
                                           const Eigen::MatrixXd &hd_inv,
                                           const Eigen::VectorXd &delta_init,
                                           const Eigen::VectorXd &eta_stack_init,
-                                          const Eigen::VectorXd &mu1_init){
+                                          const Eigen::VectorXd &mu1_init,
+                                          const int &print_level){
     /*
      * This is the core part of logistic FAR orthogonal solver
      * Args: y_vec: response vector, 0 or 1.
@@ -197,7 +198,10 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
      *       bj_vec: numerical vector for parameters in penalty kernel
      *       tol: double tolerence for converge
      *       max_iter: integer, number of max iteration
-     *
+     *       print_level: level of information to be printed
+     *                    always: some info if something went wrong, e.g. when no penalty function is matched
+     *                    1: information about the start and stop of the iteration
+     *                    2. How the loss value is changed during each iteration
      */
     const int n = y_vec.size();    // number of observations(subjects)
     double diff = 1;
@@ -241,12 +245,15 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         Rcpp::Rcout << "Not found!" << std::endl;
         pfun = Penalty_Lasso;
     }
-    Rcpp::Rcout << "Before the algorithm:" << std::endl;
+    if(print_level >= 1){
+        Rcpp::Rcout << "Before the algorithm:" << std::endl;
+    }
     loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                  weight_vec, logit_weight_vec, 
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                  weight_vec, logit_weight_vec,
                                   t_mat_stack, start_id_vec,
-                                  false, true);
+                                  false,
+                                  (print_level >= 1));
     while((!converge) && (current_iter < max_iter) && loss_drop){
         // store the results from last iteration
         delta_old = delta;
@@ -301,10 +308,11 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
         diff = std::max(diff1, diff2);
 
         loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                      weight_vec, logit_weight_vec, 
+                                      mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                      weight_vec, logit_weight_vec,
                                       t_mat_stack, start_id_vec,
-                                      false, false);
+                                      false,
+                                      (print_level >= 2));
         if(loss > loss_old + 3){
             loss_drop = false;
             if(diff <= tol){
@@ -317,14 +325,18 @@ Rcpp::List Logistic_FAR_Ortho_Solver_Core(const Eigen::VectorXd &y_vec, const Ei
             }
         }
     }
-    Rcpp::Rcout << "iter_num = " << current_iter << ", diff1 = " << diff1 << ", diff2 = " << diff2 << ", loss = " << loss << std::endl;
-    Rcpp::Rcout << "after the algorithm" << std::endl;
+    if(print_level >= 1){
+        Rcpp::Rcout << "iter_num = " << current_iter << ", diff1 = " << diff1 << ", diff2 = " << diff2 << ", loss = " << loss << std::endl;
+        Rcpp::Rcout << "after the algorithm" << std::endl;
+    }
+
     // Rcpp::Rcout << delta << std::endl;
     loss = Compute_Loss_Ortho_Cpp(x_mat, y_vec, delta, eta_stack, mu1_vec,
-                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec, 
-                                  weight_vec, logit_weight_vec, 
+                                  mu2, h, kn, p, p_type, p_param, a, bj_vec, cj_vec, rj_vec,
+                                  weight_vec, logit_weight_vec,
                                   t_mat_stack, start_id_vec,
-                                  false, true);
+                                  false,
+                                  (print_level >= 1));
 
     res = Rcpp::List::create(
         Rcpp::Named("delta", delta),
