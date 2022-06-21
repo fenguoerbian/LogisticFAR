@@ -309,7 +309,7 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
                                                    tol = tol, max_iter = max_iter,
                                                    relax_vec = relax_vec, hd_mat = hd_mat, hd_inv = hd_inv,
                                                    delta_init = delta_init, eta_stack_init = eta_stack_init, mu1_init = mu1_init,
-                                                   print_level = versose)
+                                                   print_level = verbose)
         # save the result
         delta_path[lam_ind, ] <- FAR_res$delta
         eta_stack_path[lam_ind, ] <- FAR_res$eta_stack
