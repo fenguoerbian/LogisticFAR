@@ -620,7 +620,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
     }
 
     ### --- check logit_weight_vec --- ###
-    if(is.na(logit_weight_vec)){
+    if(any(is.na(logit_weight_vec))){
+        message("`logit_weight_vec` contains `NULL`! Set `logit_weight_vec` to 1!")
         logit_weight_vec <- 1
     }
     if(!all(logit_weight_vec > 0)){
