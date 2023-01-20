@@ -268,3 +268,4 @@ vignettes/*.pdf
 */*.dll
 
 inst/doc
+docs
