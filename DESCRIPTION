@@ -1,6 +1,6 @@
 Package: LogisticFAR
 Title: Logistic Functional Additive Regression with log-contrast constrain.
-Version: 0.0.0.9010
+Version: 0.0.0.9011
 Authors@R: 
     person(given = "Chao",
            family = "Cheng",
@@ -26,4 +26,4 @@ Suggests:
     rmarkdown,
     knitr
 VignetteBuilder: knitr
-URL: https://fenguoerbian.github.io/LogisticFAR/
+URL: https://fenguoerbian.github.io/LogisticFAR/, https://github.com/fenguoerbian/LogisticFAR/
