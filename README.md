@@ -15,5 +15,5 @@ If you've installed `devtools`, then `remotes` should have already been installe
 
 ## Example
 
-To be added.
+A toy example is to be added.
 
