@@ -1,8 +1,8 @@
-#' Finds the solution path of logistic functional additive regression with log-contrast constrain.
+#' Finds the solution path of logistic functional additive regression with log-contrast constrain and FLiRTI strategy
 #'
-#' \code{Logistic_FAR_Path} finds the solution path of logistic functional additive
+#' \code{Logistic_FAR_FLiRTI_Path} finds the solution path of logistic functional additive
 #' regression with log-contrast constrain. It will NOT perform within-group orthonormalization
-#' as preprocession of the data.
+#' as preprocession of the data. __NOTE:__ This documentation needs to be double checked and updated!
 #'
 #' @param y_vec response vector, 0 for control, 1 for case.
 #' n = length(y_vec) is the number of observations.
@@ -349,10 +349,10 @@ Logistic_FAR_FLiRTI_Path <- function(y_vec, x_mat, h, kn, p,
 
 #' Cross-validation for solution path of Logistic FAR.
 #'
-#' \code{Logistic_FAR_CV_path} finds the solution path of logistic functional
-#' additive regression with log-contrast constrain via \code{Logistic_FAR_Path}.
+#' \code{Logistic_FAR_FLiRTI_CV_path} finds the solution path of logistic functional
+#' additive regression with log-contrast constrain via \code{Logistic_FAR_FLiRTI_Path}.
 #' And it will use cross-validation to assess the goodness of the estimations
-#' in the solution path.
+#' in the solution path.  __NOTE:__ This documentation needs to be double checked and updated!
 #'
 #' @param y_vec response vector, 0 for control, 1 for case.
 #' n = length(y_vec) is the number of observations.
