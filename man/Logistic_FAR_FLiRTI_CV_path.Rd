@@ -99,10 +99,10 @@ highest average loglik on the testsets. If \code{post_selection = TRUE}, same re
 based on the post selection estimation are also returned.
 }
 \description{
-\code{Logistic_FAR_CV_path} finds the solution path of logistic functional
-additive regression with log-contrast constrain via \code{Logistic_FAR_Path}.
+\code{Logistic_FAR_FLiRTI_CV_path} finds the solution path of logistic functional
+additive regression with log-contrast constrain via \code{Logistic_FAR_FLiRTI_Path}.
 And it will use cross-validation to assess the goodness of the estimations
-in the solution path.
+in the solution path.  \strong{NOTE:} This documentation needs to be double checked and updated!
 }
 \note{
 Although this function will return the index of lambda given the highest

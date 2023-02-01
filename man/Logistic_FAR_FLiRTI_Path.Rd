@@ -2,7 +2,7 @@
 % Please edit documentation in R/flirti_path_solver.R
 \name{Logistic_FAR_FLiRTI_Path}
 \alias{Logistic_FAR_FLiRTI_Path}
-\title{Finds the solution path of logistic functional additive regression with log-contrast constrain.}
+\title{Finds the solution path of logistic functional additive regression with log-contrast constrain and FLiRTI strategy}
 \usage{
 Logistic_FAR_FLiRTI_Path(
   y_vec,
@@ -82,7 +82,7 @@ and some computation information such as convergency, iteration number and the l
 sequence of this solution path.
 }
 \description{
-\code{Logistic_FAR_Path} finds the solution path of logistic functional additive
+\code{Logistic_FAR_FLiRTI_Path} finds the solution path of logistic functional additive
 regression with log-contrast constrain. It will NOT perform within-group orthonormalization
-as preprocession of the data.
+as preprocession of the data. \strong{NOTE:} This documentation needs to be double checked and updated!
 }
