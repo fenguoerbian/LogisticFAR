@@ -1,69 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/404.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/LICENSE.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/articles/Oracle_Estimator.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/articles/index.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/authors.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/index.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/BIC_Pick.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/CV_Pick.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_opath.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_opath_par.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_path.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_path_par.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_CV_path.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_CV_path_par.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_Path.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_Path_Further_Improve.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_OPath.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Oracle.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Path.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Path_Further_Improve.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/Number_Pick.html</loc>
-  </url>
-  <url>
-    <loc>https://fenguoerbian.github.io/LogisticFAR/reference/index.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/404.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/LICENSE.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/articles/Oracle_Estimator.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/articles/index.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/authors.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/index.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/BIC_Pick.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/CV_Pick.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_opath.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_opath_par.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_path.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_CV_path_par.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_CV_path.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_CV_path_par.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_Path.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_FLiRTI_Path_Further_Improve.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_OPath.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Oracle.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Path.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Logistic_FAR_Path_Further_Improve.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/Number_Pick.html</loc></url>
+<url><loc>https://fenguoerbian.github.io/LogisticFAR/reference/index.html</loc></url>
 </urlset>
+
