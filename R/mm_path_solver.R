@@ -1,6 +1,6 @@
 #' Finds the solution path of logistic functional additive regression with log-contrast constrain.
 #'
-#' \code{Logistic_FAR_Path} finds the solution path of logistic functional additive
+#' \code{Logistic_FARMM_Path} finds the solution path of logistic functional additive
 #' regression with log-contrast constrain. It will NOT perform within-group orthonormalization
 #' as preprocession of the data.
 #'
@@ -11,6 +11,9 @@
 #' dim(x_mat) = (n, h + p * kn)
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param subj_vec vector of subject ID (can be integer, character or factor type),
+#'   used for mixture model post-selection estimation
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -64,7 +67,7 @@
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path.
-Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p,
+Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, subj_vec,
                               p_type, p_param,
                               lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                               mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6),
@@ -386,7 +389,7 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p,
 
 #' Cross-validation for solution path of Logistic FAR.
 #'
-#' \code{Logistic_FAR_CV_path} finds the solution path of logistic functional
+#' \code{Logistic_FARMM_CV_path} finds the solution path of logistic functional
 #' additive regression with log-contrast constrain via \code{Logistic_FAR_Path}.
 #' And it will use cross-validation to assess the goodness of the estimations
 #' in the solution path.
@@ -398,6 +401,9 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p,
 #' dim(x_mat) = (n, h + p * kn)
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param subj_vec vector of subject ID (can be integer, character or factor type),
+#'   used for mixture model post-selection estimation
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -471,14 +477,14 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
-Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
+Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
                                  p_type, p_param,
                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                                  mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
                                  weight_vec = 1, logit_weight_vec = 1, weight_already_combine = FALSE,
                                  relax_vec,
                                  delta_init, eta_stack_init, mu_1_init,
-                                 tol, max_iter, nfold = 5, fold_seed, post_selection = FALSE, post_a = 1,
+                                 tol, max_iter, nfold = 5, fold_seed, post_selection = TRUE, post_a = 1,
                                  verbose = 0){
     # This function finds the solution path of Logistic_FAR over a sequence of lambda
     # It uses cross-validation (based on the largest loglikelihood on the test sets)
@@ -742,14 +748,15 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
-        train_res <- Logistic_FAR_Path(y_vec = y_vec_train, x_mat = x_mat_train,
-                                       h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                                       lambda_seq = lambda_seq, mu2 = mu2,
-                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
-                                       weight_vec = weight_vec_train,
-                                       logit_weight_vec = logit_weight_vec_train,
-                                       weight_already_combine = weight_already_combine,
-                                       tol = tol, max_iter = max_iter, verbose = verbose)
+        train_res <- Logistic_FARMM_Path(y_vec = y_vec_train, x_mat = x_mat_train,
+                                         h = h, kn = kn, p = p, subj_vec = subj_vec,
+                                         p_type = p_type, p_param = p_param,
+                                         lambda_seq = lambda_seq, mu2 = mu2,
+                                         a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                                         weight_vec = weight_vec_train,
+                                         logit_weight_vec = logit_weight_vec_train,
+                                         weight_already_combine = weight_already_combine,
+                                         tol = tol, max_iter = max_iter, verbose = verbose)
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
         for(lam_id in 1 : lambda_length){
@@ -764,16 +771,18 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
         if(post_selection){
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
-                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
-                                                               delta_vec_init = train_res$delta_path[lam_id, ],
-                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
-                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
-                                                               # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a,
-                                                               weight_vec = weight_vec_train,
-                                                               logit_weight_vec = logit_weight_vec_train,
-                                                               weight_already_combine = weight_already_combine,
-                                                               lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                post_est <-  Logistic_FARMM_Path_Further_Improve(
+                    x_mat = x_mat_train, y_vec = y_vec_train, subj_vec = subj_vec,
+                    h = h, k_n = kn, p = p,
+                    delta_vec_init = train_res$delta_path[lam_id, ],
+                    eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                    mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                    # mu1_vec_init = rep(0, k_n),
+                    mu2 = mu2, a = post_a,
+                    weight_vec = weight_vec_train,
+                    logit_weight_vec = logit_weight_vec_train,
+                    weight_already_combine = weight_already_combine,
+                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
                 # post_res$delta_path[lam_id, ] <- post_est$delta_vec
                 # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
                 # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
@@ -794,15 +803,16 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 
     # find the lambda with the highest test loglik
     lam_id <- which.max(colSums(loglik_test_mat))
-    res <- Logistic_FAR_Path(y_vec = y_vec, x_mat = x_mat_bak,
-                             h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                             lambda_seq = lambda_seq, mu2 = mu2,
-                             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
-                             weight_vec = weight_vec,
-                             logit_weight_vec = logit_weight_vec,
-                             weight_already_combine = weight_already_combine,
-                             tol = tol, max_iter = max_iter,
-                             verbose = verbose)
+    res <- Logistic_FARMM_Path(y_vec = y_vec, x_mat = x_mat_bak,
+                               h = h, kn = kn, p = p, subj_vec = subj_vec,
+                               p_type = p_type, p_param = p_param,
+                               lambda_seq = lambda_seq, mu2 = mu2,
+                               a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+                               weight_vec = weight_vec,
+                               logit_weight_vec = logit_weight_vec,
+                               weight_already_combine = weight_already_combine,
+                               tol = tol, max_iter = max_iter,
+                               verbose = verbose)
 
     res$cv_id <- lam_id
     res$loglik_test_mat <- loglik_test_mat
@@ -810,16 +820,18 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 
     if(post_selection){
         lam_post_id <- which.max(colSums(loglik_post_mat))
-        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
-                                                      delta_vec_init = res$delta_path[lam_post_id, ],
-                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
-                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
-                                                      # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a,
-                                                      weight_vec = weight_vec,
-                                                      logit_weight_vec = logit_weight_vec,
-                                                      weight_already_combine = weight_already_combine,
-                                                      lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        post_est <- Logistic_FARMM_Path_Further_Improve(
+            x_mat = x_mat_bak, y_vec = y_vec, subj_vec = subj_vec,
+            h = h, k_n = kn, p = p,
+            delta_vec_init = res$delta_path[lam_post_id, ],
+            eta_stack_init = res$eta_stack_path[lam_post_id, ],
+            mu1_vec_init = res$mu_1_path[lam_post_id, ],
+            # mu1_vec_init = rep(0, k_n),
+            mu2 = mu2, a = post_a,
+            weight_vec = weight_vec,
+            logit_weight_vec = logit_weight_vec,
+            weight_already_combine = weight_already_combine,
+            lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
@@ -829,7 +841,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 
 #' Cross-validation for solution path of Logistic FAR.
 #'
-#' \code{Logistic_FAR_CV_path_par} finds the solution path of logistic functional
+#' \code{Logistic_FARMM_CV_path_par} finds the solution path of logistic functional
 #' additive regression with log-contrast constrain via \code{Logistic_FAR_Path}.
 #' And it will use cross-validation to assess the goodness of the estimations
 #' in the solution path. The cross-validation is implemented in parallel manner.
@@ -841,6 +853,9 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 #' dim(x_mat) = (n, h + p * kn)
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
+#'
+#' @param subj_vec vector of subject ID (can be integer, character or factor type),
+#'   used for mixture model post-selection estimation
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -914,7 +929,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
-Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
+Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
                                      p_type, p_param,
                                      lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                                      mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
@@ -1171,7 +1186,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
     }
 
     pb <- progressr::progressor(along = 1 : (nfold + 1))    # including the final estimation
-    cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p,
+    cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p, subj_vec,
                                                               p_type, p_param, lambda_seq, mu2,
                                                               a, bj_vec, cj_vec, rj_vec,
                                                               weight_vec, logit_weight_vec, weight_already_combine,
@@ -1191,14 +1206,16 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
 
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
-        train_res <- Logistic_FAR_Path(y_vec = y_vec_train, x_mat = x_mat_train,
-                                       h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
-                                       lambda_seq = lambda_seq, mu2 = mu2,
-                                       a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
-                                       weight_vec = weight_vec_train,
-                                       logit_weight_vec = logit_weight_vec_train,
-                                       weight_already_combine = weight_already_combine,
-                                       tol = tol, max_iter = max_iter, verbose = verbose)
+        train_res <- Logistic_FARMM_Path(
+            y_vec = y_vec_train, x_mat = x_mat_train,
+            h = h, kn = kn, p = p, subj_vec = subj_vec,
+            p_type = p_type, p_param = p_param,
+            lambda_seq = lambda_seq, mu2 = mu2,
+            a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
+            weight_vec = weight_vec_train,
+            logit_weight_vec = logit_weight_vec_train,
+            weight_already_combine = weight_already_combine,
+            tol = tol, max_iter = max_iter, verbose = verbose)
 
         # test performance on the test set
         print(paste("Compute loglik on the testing set..."))
@@ -1215,16 +1232,18 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         if(post_selection){
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
-                post_est <-  Logistic_FAR_Path_Further_Improve(x_mat = x_mat_train, y_vec = y_vec_train, h = h, k_n = kn, p = p,
-                                                               delta_vec_init = train_res$delta_path[lam_id, ],
-                                                               eta_stack_init = train_res$eta_stack_path[lam_id, ],
-                                                               mu1_vec_init = train_res$mu_1_path[lam_id, ],
-                                                               # mu1_vec_init = rep(0, k_n),
-                                                               mu2 = mu2, a = post_a,
-                                                               weight_vec = weight_vec_train,
-                                                               logit_weight_vec = logit_weight_vec_train,
-                                                               weight_already_combine = weight_already_combine,
-                                                               lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+                post_est <-  Logistic_FARMM_Path_Further_Improve(
+                    x_mat = x_mat_train, y_vec = y_vec_train, subj_vec = subj_vec,
+                    h = h, k_n = kn, p = p,
+                    delta_vec_init = train_res$delta_path[lam_id, ],
+                    eta_stack_init = train_res$eta_stack_path[lam_id, ],
+                    mu1_vec_init = train_res$mu_1_path[lam_id, ],
+                    # mu1_vec_init = rep(0, k_n),
+                    mu2 = mu2, a = post_a,
+                    weight_vec = weight_vec_train,
+                    logit_weight_vec = logit_weight_vec_train,
+                    weight_already_combine = weight_already_combine,
+                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
                 # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
@@ -1239,7 +1258,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
 
         return(loglik_test_mat)
 
-    }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p,
+    }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p, subj_vec = subj_vec,
     p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
     a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
     weight_vec = weight_vec, logit_weight_vec = logit_weight_vec, weight_already_combine = weight_already_combine,
@@ -1257,8 +1276,9 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
 
     # find the lambda with the highest test loglik
     lam_id <- which.max(colSums(loglik_test_mat))
-    res <- Logistic_FAR_Path(y_vec = y_vec, x_mat = x_mat_bak,
-                             h = h, kn = kn, p = p, p_type = p_type, p_param = p_param,
+    res <- Logistic_FARMM_Path(y_vec = y_vec, x_mat = x_mat_bak,
+                             h = h, kn = kn, p = p, subj_vec = subj_vec,
+                             p_type = p_type, p_param = p_param,
                              lambda_seq = lambda_seq, mu2 = mu2,
                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
                              weight_vec = weight_vec, logit_weight_vec = logit_weight_vec,
@@ -1275,16 +1295,19 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p,
         lam_post_id <- which.max(colSums(loglik_post_mat))
         # print(paste("lam_post_id = ", lam_post_id, sep = ""))
         # print(paste("delta_vec = ", res$delta_path[lam_post_id, ], sep = ""))
-        post_est <- Logistic_FAR_Path_Further_Improve(x_mat = x_mat_bak, y_vec = y_vec, h = h, k_n = kn, p = p,
-                                                      delta_vec_init = res$delta_path[lam_post_id, ],
-                                                      eta_stack_init = res$eta_stack_path[lam_post_id, ],
-                                                      mu1_vec_init = res$mu_1_path[lam_post_id, ],
-                                                      # mu1_vec_init = rep(0, k_n),
-                                                      mu2 = mu2, a = post_a,
-                                                      weight_vec = weight_vec,
-                                                      logit_weight_vec = logit_weight_vec,
-                                                      weight_already_combine = weight_already_combine,
-                                                      lam = 0.001, tol = 10^{-5}, max_iter = 1000)
+        post_est <- Logistic_FARMM_Path_Further_Improve(
+            x_mat = x_mat_bak, y_vec = y_vec, subj_vec = subj_vec,
+            h = h, k_n = kn, p = p,
+            delta_vec_init = res$delta_path[lam_post_id, ],
+            eta_stack_init = res$eta_stack_path[lam_post_id, ],
+            mu1_vec_init = res$mu_1_path[lam_post_id, ],
+            # mu1_vec_init = rep(0, k_n),
+            mu2 = mu2, a = post_a,
+            weight_vec = weight_vec,
+            logit_weight_vec = logit_weight_vec,
+            weight_already_combine = weight_already_combine,
+            lam = 0.001, tol = 10^{-5}, max_iter = 1000,
+            fastglm = TRUE)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
