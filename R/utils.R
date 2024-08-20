@@ -885,7 +885,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
     return(res)
 }
 
-Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, p,
+Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                                                 delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
                                                 weight_vec = 1,  logit_weight_vec = 1, weight_already_combine = FALSE,
                                                 tol = 10^(-5), max_iter = 1000, fast_glm = TRUE){
@@ -903,7 +903,19 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, 
     #       lam
 
     ######------------ prepare the data ------------
-    subj_vec_fct <- as.factor(subj_vec)    # convert `subj_vec` to factor
+    # subj_vec_fct <- as.factor(subj_vec)    # convert `subj_vec` to factor
+    # ref_df: `data.frame` of random effect
+    if(is.element("subj_vec_fct", colnames(ref_df))){
+      ref_df$subj_vec_fct <- as.factor(ref_df$subj_vec_fct)
+      cols_for_ref <- setdiff(colnames(ref_df), "subj_vec_fct")
+      if(length(cols_for_ref) == 0){
+        cols_for_ref <- "1"
+      }
+      cols_for_ref <- paste(cols_for_ref, collapse = "+")
+    }else{
+      stop("A column named `subj_vec_fct` must be presented in `ref_df`!")
+    }
+
     y_vec <- as.vector(y_vec)
     x_mat <- as.matrix(x_mat)
     n <- length(y_vec)    # number of observations
@@ -984,7 +996,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, 
     active_idx <- which(col_norm != 0)
 
     ######------------ main algorithm ------------
-    if(fast_glm){    # whether to use R's built in glm for a fast computation
+    if(fast_glm){    # whether to use R's built in glm/glmer for a fast computation
         message("`weight_vec` will be ignored since `fast_glm` is set to `TRUE`!")
         yf_vec <- as.factor(y_vec)
         demo_x <- x_mat[, 1 : h, drop = FALSE]
@@ -996,8 +1008,12 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, 
         if(length(active_idx) == 0){
             # NO active functional covariates
             # fit the model
-            glmfit <- lme4::glmer(yf_vec ~ demo_x - 1 + (1 | subj_vec_fct),
-                                  family = "binomial")
+            ref_form_str <- paste0(
+              "yf_vec ~ demo_x - 1 + (", 
+              cols_for_ref, " | ", "subj_vec_fct)")
+            glmfit <- lme4::glmer(as.formula(ref_form_str),
+                                  family = "binomial", 
+                                  data = ref_df)
 
             # save the results
             delta_vec <- glmfit@beta
@@ -1028,8 +1044,14 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, 
             if(length(active_idx) == 1){
                 warning("Only 1 active group of covariates is found in `eta_stack_vec`! An ordinary glmer fit is performed!")
                 # fit the model
-                glmfit <- lme4::glmer(yf_vec ~ demo_x + x_active_mat - 1 + (1 | subj_vec_fct),
-                                      family = "binomial")
+                ref_form_str <- paste0(
+                  "yf_vec ~ demo_x + x_active_mat - 1 + (", 
+                  cols_for_ref, " | ", "subj_vec_fct)")
+                  glmfit <- lme4::glmer(as.formula(ref_form_str),
+                  family = "binomial", 
+                  data = ref_df)
+                # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_active_mat - 1 + (1 | subj_vec_fct),
+                #                       family = "binomial")
 
                 # save the results
                 beta_vec <- glmfit@beta
@@ -1061,8 +1083,14 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, subj_vec, h, k_n, 
                 x_adj_mat <- matrix(as.vector(x_adj_mat) - as.vector(x_ref_mat), nrow = n)
 
                 # fit the model
-                glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
-                                      family = "binomial")
+                ref_form_str <- paste0(
+                  "yf_vec ~ demo_x + x_adj_mat - 1 + (", 
+                  cols_for_ref, " | ", "subj_vec_fct)")
+                  glmfit <- lme4::glmer(as.formula(ref_form_str),
+                  family = "binomial", 
+                  data = ref_df)
+                # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
+                #                       family = "binomial")
 
                 # save the results
                 beta_vec <- glmfit@beta
