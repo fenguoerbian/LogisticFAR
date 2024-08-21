@@ -54,7 +54,7 @@ as preprocession of the data.</p>
 <span>  <span class="va">h</span>,</span>
 <span>  <span class="va">kn</span>,</span>
 <span>  <span class="va">p</span>,</span>
-<span>  <span class="va">subj_vec</span>,</span>
+<span>  <span class="va">rand_eff_df</span>,</span>
 <span>  <span class="va">p_type</span>,</span>
 <span>  <span class="va">p_param</span>,</span>
 <span>  <span class="va">lambda_seq</span>,</span>
@@ -100,9 +100,12 @@ Rest columns are for p functional covariates, each being represented by a set of
 <dd><p>dimension information for the dataset(<code>x_mat</code>).</p></dd>
 
 
-<dt id="arg-subj-vec">subj_vec<a class="anchor" aria-label="anchor" href="#arg-subj-vec"></a></dt>
-<dd><p>vector of subject ID (can be integer, character or factor type),
-used for mixture model post-selection estimation</p></dd>
+<dt id="arg-rand-eff-df">rand_eff_df<a class="anchor" aria-label="anchor" href="#arg-rand-eff-df"></a></dt>
+<dd><p><code>data.frame</code> of random effect related data. It must contain
+at least one column named "subj_vec_fct", which indicates the subject level.
+If this is the only column in <code>rand_eff_df</code>, then a constant random effect
+is applied. If there is other column(s), then they will all be additively added
+to the random effect as the slope term.</p></dd>
 
 
 <dt id="arg-p-type">p_type<a class="anchor" aria-label="anchor" href="#arg-p-type"></a></dt>
