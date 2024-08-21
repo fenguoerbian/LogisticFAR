@@ -885,7 +885,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
     return(res)
 }
 
-Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
+Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_n, p,
                                                 delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
                                                 weight_vec = 1,  logit_weight_vec = 1, weight_already_combine = FALSE,
                                                 tol = 10^(-5), max_iter = 1000, fast_glm = TRUE){
@@ -904,16 +904,19 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
 
     ######------------ prepare the data ------------
     # subj_vec_fct <- as.factor(subj_vec)    # convert `subj_vec` to factor
-    # ref_df: `data.frame` of random effect
-    if(is.element("subj_vec_fct", colnames(ref_df))){
-        ref_df$subj_vec_fct <- as.factor(ref_df$subj_vec_fct)
-        cols_for_ref <- setdiff(colnames(ref_df), "subj_vec_fct")
+    # rand_eff_df: `data.frame` of random effect
+    if(is.element("subj_vec_fct", colnames(rand_eff_df))){
+        if(!is.factor(rand_eff_df$subj_vec_fct)){
+            warning("Converting `subj_vec_fct` column in `rand_eff_df` to a factor variable!")
+            rand_eff_df$subj_vec_fct <- as.factor(rand_eff_df$subj_vec_fct)
+        }
+        cols_for_ref <- setdiff(colnames(rand_eff_df), "subj_vec_fct")
         if(length(cols_for_ref) == 0){
             cols_for_ref <- "1"
         }
         cols_for_ref <- paste(cols_for_ref, collapse = "+")
     }else{
-        stop("A column named `subj_vec_fct` must be presented in `ref_df`!")
+        stop("A column named `subj_vec_fct` must be presented in `rand_eff_df`!")
     }
 
     y_vec <- as.vector(y_vec)
@@ -1013,13 +1016,17 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                 cols_for_ref, " | ", "subj_vec_fct)")
             glmfit <- lme4::glmer(as.formula(ref_form_str),
                                   family = "binomial",
-                                  data = ref_df)
+                                  data = rand_eff_df)
 
             # save the results
             delta_vec <- glmfit@beta
             iter_num <- 1
             converge <- TRUE
-            random_eff_std <- glmfit@theta
+            rand_eff_std <- lme4::VarCorr(glmfit)
+            rand_eff_est <- lme4::ranef(glmfit) %>%
+                tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                tibble::remove_rownames() %>%
+                dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
 
         }else{
             # There are some active covariates
@@ -1049,7 +1056,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                     cols_for_ref, " | ", "subj_vec_fct)")
                 glmfit <- lme4::glmer(as.formula(ref_form_str),
                                       family = "binomial",
-                                      data = ref_df)
+                                      data = rand_eff_df)
                 # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_active_mat - 1 + (1 | subj_vec_fct),
                 #                       family = "binomial")
 
@@ -1073,7 +1080,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                 }
                 iter_num <- 1
                 converge <- TRUE
-                random_eff_std <- glmfit@theta
+                rand_eff_std <- lme4::VarCorr(glmfit)
+                rand_eff_est <- lme4::ranef(glmfit) %>%
+                    tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                    tibble::remove_rownames() %>%
+                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
             }else{
                 # Found multiple groups of covariates
 
@@ -1088,7 +1099,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                     cols_for_ref, " | ", "subj_vec_fct)")
                 glmfit <- lme4::glmer(as.formula(ref_form_str),
                                       family = "binomial",
-                                      data = ref_df)
+                                      data = rand_eff_df)
                 # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
                 #                       family = "binomial")
 
@@ -1116,7 +1127,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                 }
                 iter_num <- 1
                 converge <- TRUE
-                random_eff_std <- glmfit@theta
+                rand_eff_std <- lme4::VarCorr(glmfit)
+                rand_eff_est <- lme4::ranef(glmfit) %>%
+                    tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                    tibble::remove_rownames() %>%
+                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
             }
         }
     }else{
@@ -1130,7 +1145,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, ref_df, h, k_n, p,
                 regular = lam,
                 iter_num = iter_num,
                 converge = converge,
-                random_eff_std = random_eff_std)
+                rand_eff_std = rand_eff_std,
+                rand_eff_est = rand_eff_est)
     return(res)
 }
 
