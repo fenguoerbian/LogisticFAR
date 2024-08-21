@@ -12,8 +12,11 @@
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
 #'
-#' @param subj_vec vector of subject ID (can be integer, character or factor type),
-#'   used for mixture model post-selection estimation
+#' @param rand_eff_df `data.frame` of random effect related data. It must contain
+#'   at least one column named "subj_vec_fct", which indicates the subject level.
+#'   If this is the only column in `rand_eff_df`, then a constant random effect
+#'   is applied. If there is other column(s), then they will all be additively added
+#'    to the random effect as the slope term.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -67,7 +70,7 @@
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path.
-Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, subj_vec,
+Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                               p_type, p_param,
                               lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                               mu2, a = 1, bj_vec = 1, cj_vec = sqrt(kn), rj_vec = 10^(-6),
@@ -402,8 +405,11 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, subj_vec,
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
 #'
-#' @param subj_vec vector of subject ID (can be integer, character or factor type),
-#'   used for mixture model post-selection estimation
+#' @param rand_eff_df `data.frame` of random effect related data. It must contain
+#'   at least one column named "subj_vec_fct", which indicates the subject level.
+#'   If this is the only column in `rand_eff_df`, then a constant random effect
+#'   is applied. If there is other column(s), then they will all be additively added
+#'    to the random effect as the slope term.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -477,7 +483,7 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, subj_vec,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
-Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
+Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                                  p_type, p_param,
                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                                  mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
@@ -749,7 +755,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FARMM_Path(y_vec = y_vec_train, x_mat = x_mat_train,
-                                         h = h, kn = kn, p = p, subj_vec = subj_vec,
+                                         h = h, kn = kn, p = p, rand_eff_df = rand_eff_df,
                                          p_type = p_type, p_param = p_param,
                                          lambda_seq = lambda_seq, mu2 = mu2,
                                          a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
@@ -772,7 +778,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
                 post_est <-  Logistic_FARMM_Path_Further_Improve(
-                    x_mat = x_mat_train, y_vec = y_vec_train, subj_vec = subj_vec,
+                    x_mat = x_mat_train, y_vec = y_vec_train, rand_eff_df = rand_eff_df,
                     h = h, k_n = kn, p = p,
                     delta_vec_init = train_res$delta_path[lam_id, ],
                     eta_stack_init = train_res$eta_stack_path[lam_id, ],
@@ -804,7 +810,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
     # find the lambda with the highest test loglik
     lam_id <- which.max(colSums(loglik_test_mat))
     res <- Logistic_FARMM_Path(y_vec = y_vec, x_mat = x_mat_bak,
-                               h = h, kn = kn, p = p, subj_vec = subj_vec,
+                               h = h, kn = kn, p = p, rand_eff_df = rand_eff_df,
                                p_type = p_type, p_param = p_param,
                                lambda_seq = lambda_seq, mu2 = mu2,
                                a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
@@ -821,7 +827,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
     if(post_selection){
         lam_post_id <- which.max(colSums(loglik_post_mat))
         post_est <- Logistic_FARMM_Path_Further_Improve(
-            x_mat = x_mat_bak, y_vec = y_vec, subj_vec = subj_vec,
+            x_mat = x_mat_bak, y_vec = y_vec, rand_eff_df = rand_eff_df,
             h = h, k_n = kn, p = p,
             delta_vec_init = res$delta_path[lam_post_id, ],
             eta_stack_init = res$eta_stack_path[lam_post_id, ],
@@ -854,8 +860,11 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
 #' First h columns are for demographical covariates(can include an intercept term)
 #' Rest columns are for p functional covariates, each being represented by a set of basis functions resulting kn covariates.
 #'
-#' @param subj_vec vector of subject ID (can be integer, character or factor type),
-#'   used for mixture model post-selection estimation
+#' @param rand_eff_df `data.frame` of random effect related data. It must contain
+#'   at least one column named "subj_vec_fct", which indicates the subject level.
+#'   If this is the only column in `rand_eff_df`, then a constant random effect
+#'   is applied. If there is other column(s), then they will all be additively added
+#'    to the random effect as the slope term.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -929,7 +938,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, subj_vec,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
-Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
+Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                                      p_type, p_param,
                                      lambda_seq, lambda_length, min_lambda_ratio = 0.01,
                                      mu2, a = 1, bj_vec = rep(1 / sqrt(kn), p), cj_vec  = rep(1, p), rj_vec = 0.00001,
@@ -1186,7 +1195,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
     }
 
     pb <- progressr::progressor(along = 1 : (nfold + 1))    # including the final estimation
-    cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p, subj_vec,
+    cv_res <- future.apply::future_lapply(1 : nfold, function(cv_id, x_mat, y_vec, h, kn, p, rand_eff_df,
                                                               p_type, p_param, lambda_seq, mu2,
                                                               a, bj_vec, cj_vec, rj_vec,
                                                               weight_vec, logit_weight_vec, weight_already_combine,
@@ -1204,11 +1213,14 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
         weight_vec_test <- weight_vec[test_id_vec]
         logit_weight_vec_test <- logit_weight_vec[test_id_vec]
 
+        rand_eff_df_train <- rand_eff_df[-test_id_vec, , drop = FALSE]
+        rand_eff_df_test <- rand_eff_df[test_id_vec, , drop = FALSE]
+
         # find solution path on the training set
         print(paste("Find solution path on training set..."))
         train_res <- Logistic_FARMM_Path(
             y_vec = y_vec_train, x_mat = x_mat_train,
-            h = h, kn = kn, p = p, subj_vec = subj_vec,
+            h = h, kn = kn, p = p, rand_eff_df = rand_eff_df_train,
             p_type = p_type, p_param = p_param,
             lambda_seq = lambda_seq, mu2 = mu2,
             a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
@@ -1233,7 +1245,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
             # post_res <- train_res
             for(lam_id in 1 : lambda_length){
                 post_est <-  Logistic_FARMM_Path_Further_Improve(
-                    x_mat = x_mat_train, y_vec = y_vec_train, subj_vec = subj_vec,
+                    x_mat = x_mat_train, y_vec = y_vec_train, rand_eff_df = rand_eff_df_train,
                     h = h, k_n = kn, p = p,
                     delta_vec_init = train_res$delta_path[lam_id, ],
                     eta_stack_init = train_res$eta_stack_path[lam_id, ],
@@ -1258,7 +1270,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
 
         return(loglik_test_mat)
 
-    }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p, subj_vec = subj_vec,
+    }, x_mat = x_mat_bak, y_vec = y_vec, h = h, kn = kn, p = p, rand_eff_df = rand_eff_df,
     p_type = p_type, p_param = p_param, lambda_seq = lambda_seq, mu2 = mu2,
     a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
     weight_vec = weight_vec, logit_weight_vec = logit_weight_vec, weight_already_combine = weight_already_combine,
@@ -1277,7 +1289,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
     # find the lambda with the highest test loglik
     lam_id <- which.max(colSums(loglik_test_mat))
     res <- Logistic_FARMM_Path(y_vec = y_vec, x_mat = x_mat_bak,
-                             h = h, kn = kn, p = p, subj_vec = subj_vec,
+                             h = h, kn = kn, p = p, rand_eff_df = rand_eff_df,
                              p_type = p_type, p_param = p_param,
                              lambda_seq = lambda_seq, mu2 = mu2,
                              a = a, bj_vec = bj_vec, cj_vec = cj_vec, rj_vec = rj_vec,
@@ -1296,7 +1308,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, subj_vec,
         # print(paste("lam_post_id = ", lam_post_id, sep = ""))
         # print(paste("delta_vec = ", res$delta_path[lam_post_id, ], sep = ""))
         post_est <- Logistic_FARMM_Path_Further_Improve(
-            x_mat = x_mat_bak, y_vec = y_vec, subj_vec = subj_vec,
+            x_mat = x_mat_bak, y_vec = y_vec, rand_eff_df = rand_eff_df,
             h = h, k_n = kn, p = p,
             delta_vec_init = res$delta_path[lam_post_id, ],
             eta_stack_init = res$eta_stack_path[lam_post_id, ],

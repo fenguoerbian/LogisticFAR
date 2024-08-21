@@ -10,7 +10,7 @@ Logistic_FARMM_Path(
   h,
   kn,
   p,
-  subj_vec,
+  rand_eff_df,
   p_type,
   p_param,
   lambda_seq,
@@ -46,8 +46,11 @@ Rest columns are for p functional covariates, each being represented by a set of
 
 \item{h, kn, p}{dimension information for the dataset(\code{x_mat}).}
 
-\item{subj_vec}{vector of subject ID (can be integer, character or factor type),
-used for mixture model post-selection estimation}
+\item{rand_eff_df}{\code{data.frame} of random effect related data. It must contain
+at least one column named "subj_vec_fct", which indicates the subject level.
+If this is the only column in \code{rand_eff_df}, then a constant random effect
+is applied. If there is other column(s), then they will all be additively added
+to the random effect as the slope term.}
 
 \item{p_type}{an character variable indicating different types of the penalty}
 
