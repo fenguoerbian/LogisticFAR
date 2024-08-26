@@ -1023,10 +1023,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
             iter_num <- 1
             converge <- TRUE
             rand_eff_std <- lme4::VarCorr(glmfit)
-            rand_eff_est <- lme4::ranef(glmfit) %>%
+            rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%    # `ranef()` returns a list
                 tibble::rownames_to_column(var = "subj_vec_fct") %>%
                 tibble::remove_rownames() %>%
-                dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
+                dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                              .before = everything())
 
         }else{
             # There are some active covariates
@@ -1081,10 +1082,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 iter_num <- 1
                 converge <- TRUE
                 rand_eff_std <- lme4::VarCorr(glmfit)
-                rand_eff_est <- lme4::ranef(glmfit) %>%
+                rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
                     tibble::rownames_to_column(var = "subj_vec_fct") %>%
                     tibble::remove_rownames() %>%
-                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
+                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                                  .before = everything())
             }else{
                 # Found multiple groups of covariates
 
@@ -1128,10 +1130,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 iter_num <- 1
                 converge <- TRUE
                 rand_eff_std <- lme4::VarCorr(glmfit)
-                rand_eff_est <- lme4::ranef(glmfit) %>%
+                rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
                     tibble::rownames_to_column(var = "subj_vec_fct") %>%
                     tibble::remove_rownames() %>%
-                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct))
+                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                                  .before = everything())
             }
         }
     }else{
