@@ -110,7 +110,8 @@ Rest columns are for p functional covariates, each being represented by a set of
 at least one column named "subj_vec_fct", which indicates the subject level.
 If this is the only column in <code>rand_eff_df</code>, then a constant random effect
 is applied. If there is other column(s), then they will all be additively added
-to the random effect as the slope term.</p></dd>
+to the random effect as the slope term. The number of rows of <code>rand_eff_df</code>
+is the the same as <code>length(y_vec)</code>.</p></dd>
 
 
 <dt id="arg-p-type">p_type<a class="anchor" aria-label="anchor" href="#arg-p-type"></a></dt>
