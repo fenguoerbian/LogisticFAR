@@ -814,6 +814,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     zmat <- matrix(1, nrow = nrow(rand_eff_df_test), ncol = 1)
                 }else{
                     zmat <- rand_eff_df_test[, which(colnames(rand_eff_df_test) != "subj_vec_fct"), drop = FALSE]
+                    zmat <- cbind(1, zmat)
                 }
 
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
@@ -1297,6 +1298,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     zmat <- matrix(1, nrow = nrow(rand_eff_df_test), ncol = 1)
                 }else{
                     zmat <- rand_eff_df_test[, which(colnames(rand_eff_df_test) != "subj_vec_fct"), drop = FALSE]
+                    zmat <- cbind(1, zmat)
                 }
 
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
