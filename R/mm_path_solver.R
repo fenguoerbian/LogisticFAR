@@ -70,6 +70,8 @@
 #' @return A list containing the solution path of \code{delta}, \code{eta_stack}, \code{mu1}
 #' and some computation information such as convergency, iteration number and the lambda
 #' sequence of this solution path.
+#'
+#' @export
 Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                               p_type, p_param,
                               lambda_seq, lambda_length, min_lambda_ratio = 0.01,
@@ -483,6 +485,7 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
+#' @export
 Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                                  p_type, p_param,
                                  lambda_seq, lambda_length, min_lambda_ratio = 0.01,
@@ -938,6 +941,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
 #' averaged loglik on the testsets. It is more recommended to use the stand alone
 #' \code{*_pick} functions in this packages, such as \code{CV_Pick} to find a optimal
 #' lambda since those functions give more flexibility.
+#' @export
 Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                                      p_type, p_param,
                                      lambda_seq, lambda_length, min_lambda_ratio = 0.01,
