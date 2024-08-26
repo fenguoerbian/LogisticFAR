@@ -50,7 +50,8 @@ Rest columns are for p functional covariates, each being represented by a set of
 at least one column named "subj_vec_fct", which indicates the subject level.
 If this is the only column in \code{rand_eff_df}, then a constant random effect
 is applied. If there is other column(s), then they will all be additively added
-to the random effect as the slope term.}
+to the random effect as the slope term. The number of rows of \code{rand_eff_df}
+is the the same as \code{length(y_vec)}.}
 
 \item{p_type}{an character variable indicating different types of the penalty}
 

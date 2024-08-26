@@ -16,7 +16,8 @@
 #'   at least one column named "subj_vec_fct", which indicates the subject level.
 #'   If this is the only column in `rand_eff_df`, then a constant random effect
 #'   is applied. If there is other column(s), then they will all be additively added
-#'    to the random effect as the slope term.
+#'    to the random effect as the slope term. The number of rows of `rand_eff_df`
+#'    is the the same as `length(y_vec)`.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -411,7 +412,8 @@ Logistic_FARMM_Path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
 #'   at least one column named "subj_vec_fct", which indicates the subject level.
 #'   If this is the only column in `rand_eff_df`, then a constant random effect
 #'   is applied. If there is other column(s), then they will all be additively added
-#'    to the random effect as the slope term.
+#'    to the random effect as the slope term. The number of rows of `rand_eff_df`
+#'    is the the same as `length(y_vec)`.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
@@ -867,7 +869,8 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
 #'   at least one column named "subj_vec_fct", which indicates the subject level.
 #'   If this is the only column in `rand_eff_df`, then a constant random effect
 #'   is applied. If there is other column(s), then they will all be additively added
-#'    to the random effect as the slope term.
+#'    to the random effect as the slope term. The number of rows of `rand_eff_df`
+#'    is the the same as `length(y_vec)`.
 #'
 #' @param h,kn,p dimension information for the dataset(\code{x_mat}).
 #'
