@@ -919,6 +919,9 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
         stop("A column named `subj_vec_fct` must be presented in `rand_eff_df`!")
     }
 
+    custom_glmer_control <- lme4::glmerControl(
+        check.nobs.vs.nRE = "warnning")
+
     y_vec <- as.vector(y_vec)
     x_mat <- as.matrix(x_mat)
     n <- length(y_vec)    # number of observations
@@ -1016,7 +1019,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 cols_for_ref, " | ", "subj_vec_fct)")
             glmfit <- lme4::glmer(as.formula(ref_form_str),
                                   family = "binomial",
-                                  data = rand_eff_df)
+                                  data = rand_eff_df,
+                                  control = custom_glmer_control)
 
             # save the results
             delta_vec <- glmfit@beta
@@ -1057,7 +1061,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     cols_for_ref, " | ", "subj_vec_fct)")
                 glmfit <- lme4::glmer(as.formula(ref_form_str),
                                       family = "binomial",
-                                      data = rand_eff_df)
+                                      data = rand_eff_df,
+                                      custom_glmer_control)
                 # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_active_mat - 1 + (1 | subj_vec_fct),
                 #                       family = "binomial")
 
@@ -1101,7 +1106,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     cols_for_ref, " | ", "subj_vec_fct)")
                 glmfit <- lme4::glmer(as.formula(ref_form_str),
                                       family = "binomial",
-                                      data = rand_eff_df)
+                                      data = rand_eff_df,
+                                      custom_glmer_control)
                 # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
                 #                       family = "binomial")
 
