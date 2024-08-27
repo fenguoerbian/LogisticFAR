@@ -921,7 +921,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
     }
 
     custom_glmer_control <- lme4::glmerControl(
-        check.nobs.vs.nRE = "warnning")
+        check.nobs.vs.nRE = "warning")
 
     y_vec <- as.vector(y_vec)
     x_mat <- as.matrix(x_mat)
