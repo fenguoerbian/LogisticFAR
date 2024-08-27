@@ -1025,8 +1025,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
             control = custom_glmer_control
         )
 
-        dummy_rand_eff_std <- lme4::VarCorr(glmdummyfitfit)
-        dummy_rand_eff_est <- lme4::ranef(glmdummyfitfit)[[1]] %>%    # `ranef()` returns a list
+        dummy_rand_eff_std <- lme4::VarCorr(glmdummyfit)
+        dummy_rand_eff_est <- lme4::ranef(glmdummyfit)[[1]] %>%    # `ranef()` returns a list
             tibble::rownames_to_column(var = "subj_vec_fct") %>%
             tibble::remove_rownames() %>%
             dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
