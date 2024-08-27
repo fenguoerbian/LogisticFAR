@@ -923,6 +923,9 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
     custom_glmer_control <- lme4::glmerControl(
         check.nobs.vs.nRE = "warning")
 
+    # glmer dummy fit
+
+
     y_vec <- as.vector(y_vec)
     x_mat <- as.matrix(x_mat)
     n <- length(y_vec)    # number of observations
@@ -1012,27 +1015,61 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
         eta_stack_vec <- eta_stack_init
         mu1_vec <- mu1_vec_init
 
+        glmdummyfit <- lme4::glmer(
+            as.formula(
+                paste0(
+                    "yf_vec ~ 1 + (",
+                    cols_for_ref, " | ", "subj_vec_fct)")),
+            family = "binomial",
+            data = rand_eff_df,
+            control = custom_glmer_control
+        )
+
+        dummy_rand_eff_std <- lme4::VarCorr(glmdummyfitfit)
+        dummy_rand_eff_est <- lme4::ranef(glmdummyfitfit)[[1]] %>%    # `ranef()` returns a list
+            tibble::rownames_to_column(var = "subj_vec_fct") %>%
+            tibble::remove_rownames() %>%
+            dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                          .before = everything()) %>%
+            mutate(across(-subj_vec_fct, function(invec){0}))
+
         if(length(active_idx) == 0){
             # NO active functional covariates
             # fit the model
             ref_form_str <- paste0(
                 "yf_vec ~ demo_x - 1 + (",
                 cols_for_ref, " | ", "subj_vec_fct)")
-            glmfit <- lme4::glmer(as.formula(ref_form_str),
-                                  family = "binomial",
-                                  data = rand_eff_df,
-                                  control = custom_glmer_control)
+            try_res <- try(glmfit <- lme4::glmer(as.formula(ref_form_str),
+                                      family = "binomial",
+                                      data = rand_eff_df,
+                                      control = custom_glmer_control),
+                silent = TRUE)
 
-            # save the results
-            delta_vec <- glmfit@beta
-            iter_num <- 1
-            converge <- TRUE
-            rand_eff_std <- lme4::VarCorr(glmfit)
-            rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%    # `ranef()` returns a list
-                tibble::rownames_to_column(var = "subj_vec_fct") %>%
-                tibble::remove_rownames() %>%
-                dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                              .before = everything())
+            if(!inherits(try_res, "try-error")){
+                # save the results
+                delta_vec <- glmfit@beta
+                iter_num <- 1
+                converge <- TRUE
+                rand_eff_std <- lme4::VarCorr(glmfit)
+                rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%    # `ranef()` returns a list
+                    tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                    tibble::remove_rownames() %>%
+                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                                  .before = everything())
+            }else{
+                # fit the model
+                glmfit <- glm(yf_vec ~ demo_x - 1, family = binomial)
+
+                # save the results
+                delta_vec <- glmfit$coefficients
+                iter_num <- glmfit$iter
+                converge <- glmfit$converged
+                rand_eff_std <- dummy_rand_eff_std
+                rand_eff_est <- dummy_rand_eff_est
+            }
+
+
+
 
         }else{
             # There are some active covariates
@@ -1060,39 +1097,73 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 ref_form_str <- paste0(
                     "yf_vec ~ demo_x + x_active_mat - 1 + (",
                     cols_for_ref, " | ", "subj_vec_fct)")
-                glmfit <- lme4::glmer(as.formula(ref_form_str),
-                                      family = "binomial",
-                                      data = rand_eff_df,
-                                      custom_glmer_control)
+                try_res <- try(
+                    glmfit <- lme4::glmer(as.formula(ref_form_str),
+                                          family = "binomial",
+                                          data = rand_eff_df,
+                                          custom_glmer_control),
+                    silent = TRUE
+                )
                 # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_active_mat - 1 + (1 | subj_vec_fct),
                 #                       family = "binomial")
 
-                # save the results
-                beta_vec <- glmfit@beta
-                delta_vec <- beta_vec[1 : h]
-                eta_active_stack_vec <- beta_vec[(1 : k_n) + h]
-                # save the eta result back to original form
-                for(i in 1 : length(active_idx)){
-                    idx <- active_idx[i]
-                    # start and stop index in the original x_mat
-                    start_ind <- ind_mat[idx, 1]
-                    stop_ind <- ind_mat[idx, 2]
-                    # start and stop index in the resulting active vector/matrix
-                    res_start_ind <- (i - 1) * k_n + 1
-                    res_stop_ind <- i * k_n
-                    # copy the result back to original form
-                    # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
-                    # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
-                    eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                if(!inherits(try_res, "try-error")){
+                    # save the results
+                    beta_vec <- glmfit@beta
+                    delta_vec <- beta_vec[1 : h]
+                    eta_active_stack_vec <- beta_vec[(1 : k_n) + h]
+                    # save the eta result back to original form
+                    for(i in 1 : length(active_idx)){
+                        idx <- active_idx[i]
+                        # start and stop index in the original x_mat
+                        start_ind <- ind_mat[idx, 1]
+                        stop_ind <- ind_mat[idx, 2]
+                        # start and stop index in the resulting active vector/matrix
+                        res_start_ind <- (i - 1) * k_n + 1
+                        res_stop_ind <- i * k_n
+                        # copy the result back to original form
+                        # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+                        # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+                        eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                    }
+                    iter_num <- 1
+                    converge <- TRUE
+                    rand_eff_std <- lme4::VarCorr(glmfit)
+                    rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
+                        tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                        tibble::remove_rownames() %>%
+                        dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                                      .before = everything())
+                }else{
+                    # fit the model
+                    glmfit <- glm(yf_vec ~ demo_x + x_active_mat - 1, family = binomial)
+
+                    # save the results
+                    delta_vec <- glmfit$coefficients[1 : h]
+                    eta_active_stack_vec <- glmfit$coefficients[(1 : k_n) + h]
+                    # save the eta result back to original form
+                    for(i in 1 : length(active_idx)){
+                        idx <- active_idx[i]
+                        # start and stop index in the original x_mat
+                        start_ind <- ind_mat[idx, 1]
+                        stop_ind <- ind_mat[idx, 2]
+                        # start and stop index in the resulting active vector/matrix
+                        res_start_ind <- (i - 1) * k_n + 1
+                        res_stop_ind <- i * k_n
+                        # copy the result back to original form
+                        # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+                        # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+                        eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                    }
+                    iter_num <- glmfit$iter
+                    converge <- glmfit$converged
+                    rand_eff_std <- dummy_rand_eff_std
+                    rand_eff_est <- dummy_rand_eff_est
                 }
-                iter_num <- 1
-                converge <- TRUE
-                rand_eff_std <- lme4::VarCorr(glmfit)
-                rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
-                    tibble::rownames_to_column(var = "subj_vec_fct") %>%
-                    tibble::remove_rownames() %>%
-                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                                  .before = everything())
+
+
+
+
             }else{
                 # Found multiple groups of covariates
 
@@ -1105,43 +1176,80 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 ref_form_str <- paste0(
                     "yf_vec ~ demo_x + x_adj_mat - 1 + (",
                     cols_for_ref, " | ", "subj_vec_fct)")
-                glmfit <- lme4::glmer(as.formula(ref_form_str),
-                                      family = "binomial",
-                                      data = rand_eff_df,
-                                      custom_glmer_control)
-                # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
-                #                       family = "binomial")
 
-                # save the results
-                beta_vec <- glmfit@beta
-                delta_vec <- beta_vec[1 : h]
-                eta_adj_stack_vec <- beta_vec[-(1 : h)]
-                eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
-                eta_active_stack_vec <- rep(0, k_n * length(active_idx))
-                eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
-                eta_active_stack_vec[(1 : k_n) + ((length(active_idx) - 1) * k_n)] <- eta_ref_vec
-                # save the eta result back to original form
-                for(i in 1 : length(active_idx)){
-                    idx <- active_idx[i]
-                    # start and stop index in the original x_mat
-                    start_ind <- ind_mat[idx, 1]
-                    stop_ind <- ind_mat[idx, 2]
-                    # start and stop index in the resulting active vector/matrix
-                    res_start_ind <- (i - 1) * k_n + 1
-                    res_stop_ind <- i * k_n
-                    # copy the result back to original form
-                    # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
-                    # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
-                    eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                try_res <- try(
+                    glmfit <- lme4::glmer(as.formula(ref_form_str),
+                                          family = "binomial",
+                                          data = rand_eff_df,
+                                          custom_glmer_control),
+                    silent = TRUE
+                    # glmfit <- lme4::glmer(yf_vec ~ demo_x + x_adj_mat - 1 + (1 | subj_vec_fct),
+                    #                       family = "binomial")
+                )
+
+                if(!inherits(try_res, "try-error")){
+                    # save the results
+                    beta_vec <- glmfit@beta
+                    delta_vec <- beta_vec[1 : h]
+                    eta_adj_stack_vec <- beta_vec[-(1 : h)]
+                    eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
+                    eta_active_stack_vec <- rep(0, k_n * length(active_idx))
+                    eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
+                    eta_active_stack_vec[(1 : k_n) + ((length(active_idx) - 1) * k_n)] <- eta_ref_vec
+                    # save the eta result back to original form
+                    for(i in 1 : length(active_idx)){
+                        idx <- active_idx[i]
+                        # start and stop index in the original x_mat
+                        start_ind <- ind_mat[idx, 1]
+                        stop_ind <- ind_mat[idx, 2]
+                        # start and stop index in the resulting active vector/matrix
+                        res_start_ind <- (i - 1) * k_n + 1
+                        res_stop_ind <- i * k_n
+                        # copy the result back to original form
+                        # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+                        # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+                        eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                    }
+                    iter_num <- 1
+                    converge <- TRUE
+                    rand_eff_std <- lme4::VarCorr(glmfit)
+                    rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
+                        tibble::rownames_to_column(var = "subj_vec_fct") %>%
+                        tibble::remove_rownames() %>%
+                        dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
+                                      .before = everything())
+                }else{
+                    # fit the model
+                    glmfit <- glm(yf_vec ~ demo_x + x_adj_mat - 1, family = binomial)
+
+                    # save the results
+                    delta_vec <- glmfit$coefficients[1 : h]
+                    eta_adj_stack_vec <- glmfit$coefficients[-(1 : h)]
+                    eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
+                    eta_active_stack_vec <- rep(0, k_n * length(active_idx))
+                    eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
+                    eta_active_stack_vec[(1 : k_n) + ((length(active_idx) - 1) * k_n)] <- eta_ref_vec
+                    # save the eta result back to original form
+                    for(i in 1 : length(active_idx)){
+                        idx <- active_idx[i]
+                        # start and stop index in the original x_mat
+                        start_ind <- ind_mat[idx, 1]
+                        stop_ind <- ind_mat[idx, 2]
+                        # start and stop index in the resulting active vector/matrix
+                        res_start_ind <- (i - 1) * k_n + 1
+                        res_stop_ind <- i * k_n
+                        # copy the result back to original form
+                        # print(paste("start_ind = ", start_ind, ", stop_ind = ", stop_ind, sep = ""))
+                        # print(paste("res_start_ind = ", res_start_ind, ", res_stop_ind = ", res_stop_ind, sep = ""))
+                        eta_stack_vec[(start_ind : stop_ind) - h] <- eta_active_stack_vec[res_start_ind : res_stop_ind]
+                    }
+                    iter_num <- glmfit$iter
+                    converge <- glmfit$converged
+                    rand_eff_std <- dummy_rand_eff_std
+                    rand_eff_est <- dummy_rand_eff_est
                 }
-                iter_num <- 1
-                converge <- TRUE
-                rand_eff_std <- lme4::VarCorr(glmfit)
-                rand_eff_est <- lme4::ranef(glmfit)[[1]] %>%
-                    tibble::rownames_to_column(var = "subj_vec_fct") %>%
-                    tibble::remove_rownames() %>%
-                    dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                                  .before = everything())
+
+
             }
         }
     }else{
