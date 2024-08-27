@@ -885,6 +885,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
     return(res)
 }
 
+#' @export
 Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_n, p,
                                                 delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
                                                 weight_vec = 1,  logit_weight_vec = 1, weight_already_combine = FALSE,

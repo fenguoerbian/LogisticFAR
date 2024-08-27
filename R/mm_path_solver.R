@@ -798,7 +798,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     weight_vec = weight_vec_train,
                     logit_weight_vec = logit_weight_vec_train,
                     weight_already_combine = weight_already_combine,
-                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
+                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fast_glm = TRUE)
                 # post_res$delta_path[lam_id, ] <- post_est$delta_vec
                 # post_res$eta_stack_path[lam_id, ] <- post_est$eta_stack_vec
                 # post_res$mu1_path[lam_id, ] <- post_est$mu1_vec
@@ -814,6 +814,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     zmat <- matrix(1, nrow = nrow(rand_eff_df_test), ncol = 1)
                 }else{
                     zmat <- rand_eff_df_test[, which(colnames(rand_eff_df_test) != "subj_vec_fct"), drop = FALSE]
+                    zmat <- cbind(1, zmat)
                 }
 
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
@@ -865,7 +866,7 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
             weight_vec = weight_vec,
             logit_weight_vec = logit_weight_vec,
             weight_already_combine = weight_already_combine,
-            lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
+            lam = 0.001, tol = 10^{-5}, max_iter = 1000, fast_glm = TRUE)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
@@ -1287,7 +1288,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     weight_vec = weight_vec_train,
                     logit_weight_vec = logit_weight_vec_train,
                     weight_already_combine = weight_already_combine,
-                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fastglm = TRUE)
+                    lam = 0.001, tol = 10^{-5}, max_iter = 1000, fast_glm = TRUE)
                 delta_vec <- post_est$delta_vec
                 peta_stack_vec <- post_est$eta_stack_vec
                 # fixed effect part of pi vector
@@ -1297,6 +1298,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                     zmat <- matrix(1, nrow = nrow(rand_eff_df_test), ncol = 1)
                 }else{
                     zmat <- rand_eff_df_test[, which(colnames(rand_eff_df_test) != "subj_vec_fct"), drop = FALSE]
+                    zmat <- cbind(1, zmat)
                 }
 
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
@@ -1368,7 +1370,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
             logit_weight_vec = logit_weight_vec,
             weight_already_combine = weight_already_combine,
             lam = 0.001, tol = 10^{-5}, max_iter = 1000,
-            fastglm = TRUE)
+            fast_glm = TRUE)
         res$cv_post_id <- lam_post_id
         res$loglik_post_mat <- loglik_post_mat
         res$post_est <- post_est
