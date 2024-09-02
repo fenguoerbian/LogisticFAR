@@ -688,6 +688,7 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
 
             # save the results
             delta_vec <- glmfit$coefficients
+            delta_vec[is.na(delta_vec)] <- 0
             iter_num <- glmfit$iter
             converge <- glmfit$converged
 
@@ -719,6 +720,9 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
                 # save the results
                 delta_vec <- glmfit$coefficients[1 : h]
                 eta_active_stack_vec <- glmfit$coefficients[(1 : k_n) + h]
+                delta_vec[is.na(delta_vec)] <- 0
+                eta_active_stack_vec[is.na(eta_active_stack_vec)] <- 0
+
                 # save the eta result back to original form
                 for(i in 1 : length(active_idx)){
                     idx <- active_idx[i]
@@ -749,6 +753,9 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
                 # save the results
                 delta_vec <- glmfit$coefficients[1 : h]
                 eta_adj_stack_vec <- glmfit$coefficients[-(1 : h)]
+                delta_vec[is.na(delta_vec)] <- 0
+                eta_adj_stack_vec[is.na(eta_adj_stack_vec)] <- 0
+
                 eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
                 eta_active_stack_vec <- rep(0, k_n * length(active_idx))
                 eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
