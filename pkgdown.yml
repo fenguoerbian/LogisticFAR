@@ -3,7 +3,7 @@ pkgdown: 2.1.0
 pkgdown_sha: ~
 articles:
   Oracle_Estimator: Oracle_Estimator.html
-last_built: 2024-08-27T08:54Z
+last_built: 2024-09-02T07:38Z
 urls:
   reference: https://fenguoerbian.github.io/LogisticFAR/reference
   article: https://fenguoerbian.github.io/LogisticFAR/articles
