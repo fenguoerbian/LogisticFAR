@@ -885,6 +885,27 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
     return(res)
 }
 
+
+#' Get and replace `NA` with `0` in the fixed-effect coefficients from a Mixed-effect model
+#' @param in_model An input model, expected from `lme4::glmer`.
+#' @returns The fiexed-effect coefficients of the input model. The dropped
+#'   columns (if any) are populated also with coefficients all being 0.
+Replace_Fixef_NA <- function(in_model){
+    fixef <- in_model@beta
+    dropped_col_idx <- attr(in_model@pp$X, "col.dropped")
+    if(!is.null(dropped_col_idx)){
+        drop_num <- length(dropped_col_idx)
+        valid_num <- length(fixef)
+        valid_idx <- setdiff(1 : (drop_num + valid_num), dropped_col_idx)
+        res <- rep(0, drop_num + valid_num)
+        res[valid_idx] <- fixef
+    }else{
+        res <- fixef
+    }
+
+    return(res)
+}
+
 #' @export
 Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_n, p,
                                                 delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
@@ -1047,7 +1068,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
 
             if(!inherits(try_res, "try-error")){
                 # save the results
-                delta_vec <- glmfit@beta
+                # delta_vec <- glmfit@beta
+                delta_vec <- Replace_Fixef_NA(glmfit)
                 iter_num <- 1
                 converge <- TRUE
                 rand_eff_std <- lme4::VarCorr(glmfit)
@@ -1066,6 +1088,9 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 converge <- glmfit$converged
                 rand_eff_std <- dummy_rand_eff_std
                 rand_eff_est <- dummy_rand_eff_est
+
+                # replace `NA` in `glm` results with `0`
+                delta_vec[is.na(delta_vec)] <- 0
             }
 
 
@@ -1109,7 +1134,9 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
 
                 if(!inherits(try_res, "try-error")){
                     # save the results
-                    beta_vec <- glmfit@beta
+                    # beta_vec <- glmfit@beta
+                    beta_vec <- Replace_Fixef_NA(glmfit)
+
                     delta_vec <- beta_vec[1 : h]
                     eta_active_stack_vec <- beta_vec[(1 : k_n) + h]
                     # save the eta result back to original form
@@ -1141,6 +1168,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     # save the results
                     delta_vec <- glmfit$coefficients[1 : h]
                     eta_active_stack_vec <- glmfit$coefficients[(1 : k_n) + h]
+
+                    # replace possible `NA` in `glm` fit with `0`
+                    delta_vec[is.na(delta_vec)] <- 0
+                    eta_active_stack_vec[is.na(eta_active_stack_vec)] <- 0
+
                     # save the eta result back to original form
                     for(i in 1 : length(active_idx)){
                         idx <- active_idx[i]
@@ -1189,7 +1221,9 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
 
                 if(!inherits(try_res, "try-error")){
                     # save the results
-                    beta_vec <- glmfit@beta
+                    # beta_vec <- glmfit@beta
+                    beta_vec <- Replace_Fixef_NA(glmfit)
+
                     delta_vec <- beta_vec[1 : h]
                     eta_adj_stack_vec <- beta_vec[-(1 : h)]
                     eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
@@ -1225,6 +1259,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     # save the results
                     delta_vec <- glmfit$coefficients[1 : h]
                     eta_adj_stack_vec <- glmfit$coefficients[-(1 : h)]
+
+                    # replace possible `NA` in `glm` fit with `0`
+                    delta_vec[is.na(delta_vec)] <- 0
+                    eta_adj_stack_vec[is.na(eta_adj_stack_vec)] <- 0
+
                     eta_ref_vec <- apply(matrix(eta_adj_stack_vec, nrow = k_n), 1, function(invec) -sum(invec))
                     eta_active_stack_vec <- rep(0, k_n * length(active_idx))
                     eta_active_stack_vec[1 : ((length(active_idx) - 1) * k_n)] <- eta_adj_stack_vec
