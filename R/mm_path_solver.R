@@ -1323,7 +1323,7 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
 
                 # test_pi_vec <- as.vector(x_mat_test %*% c(delta_vec, eta_stack_vec))
                 test_pi_vec <- test_pi_vec1 + test_pi_vec2
-                loglik_post_mat[2, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
+                loglik_test_mat[2, lam_id] <- sum((y_vec_test * test_pi_vec - log(1 + exp(test_pi_vec))) * weight_vec_test)
             }
         }else{
             stop("`post_selection` must be set to `TRUE` for `Logistic_FARMM_CV_path()`!")
