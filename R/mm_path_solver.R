@@ -821,6 +821,12 @@ Logistic_FARMM_CV_path <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
                     left_join(post_est$rand_eff_est,
                               by = "subj_vec_fct") %>%
+                    dplyr::mutate(
+                        dplyr::across(
+                            tidyselect::everything(),
+                            function(invec){
+                                tidyr::replace_na(data = invec, replace = 0)
+                            })) %>%
                     select(-subj_vec_fct) %>%
                     as.matrix()
                 test_pi_vec2 <- rowSums(zmat * rand_eff_mat)
@@ -1305,6 +1311,12 @@ Logistic_FARMM_CV_path_par <- function(y_vec, x_mat, h, kn, p, rand_eff_df,
                 rand_eff_mat <- data.frame(subj_vec_fct = rand_eff_df_test$subj_vec_fct) %>%
                     left_join(post_est$rand_eff_est,
                               by = "subj_vec_fct") %>%
+                    dplyr::mutate(
+                        dplyr::across(
+                            tidyselect::everything(),
+                            function(invec){
+                                tidyr::replace_na(data = invec, replace = 0)
+                            })) %>%
                     select(-subj_vec_fct) %>%
                     as.matrix()
                 test_pi_vec2 <- rowSums(zmat * rand_eff_mat)
