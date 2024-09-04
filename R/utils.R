@@ -273,11 +273,17 @@ CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_
     if(length(id_vec) > 0){
         loglik_mat <- cv_solution_path$loglik_test_mat[, id_vec, drop = FALSE]
         if(cv_1se){
-            if(length(id_vec) >= 2){
-                loglik_sd <- sd(colSums(loglik_mat))
+            # ---  of derive `loglik_sd` for 1se-rule
+            colsum_loglik <- colSums(loglik_mat)
+            colsum_loglik <- colsum_loglik[!is.infinite(colsum_loglik)]
+            colsum_loglik <- colsum_loglik[!is.na(colsum_loglik)]
+
+            if(length(colsum_loglik) >= 2){
+                loglik_sd <- sd(colsum_loglik)
             }else{
                 loglik_sd <- 0
             }
+            # --- end of derive `loglik_sd` for 1se-rule
             loglik_max <- max(colSums(loglik_mat))
             id_1se <- which(abs(colSums(loglik_mat) - loglik_max) <= loglik_sd)
 
@@ -315,11 +321,22 @@ CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_
         if(length(id_vec) > 0){
             loglik_mat <- cv_solution_path$loglik_post_mat[, id_vec, drop = FALSE]
             if(cv_1se){
-                if(length(id_vec) >= 2){
-                    loglik_sd <- sd(colSums(loglik_mat))
+                # ---  of derive `loglik_sd` for 1se-rule
+                colsum_loglik <- colSums(loglik_mat)
+                colsum_loglik <- colsum_loglik[!is.infinite(colsum_loglik)]
+                colsum_loglik <- colsum_loglik[!is.na(colsum_loglik)]
+
+                if(length(colsum_loglik) >= 2){
+                    loglik_sd <- sd(colsum_loglik)
                 }else{
                     loglik_sd <- 0
                 }
+                # if(length(id_vec) >= 2){
+                #     loglik_sd <- sd(colSums(loglik_mat))
+                # }else{
+                #     loglik_sd <- 0
+                # }
+                # --- end of derive `loglik_sd` for 1se-rule
                 loglik_max <- max(colSums(loglik_mat))
                 id_1se <- which(abs(colSums(loglik_mat) - loglik_max) <= loglik_sd)
 
