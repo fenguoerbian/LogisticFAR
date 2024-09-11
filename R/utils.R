@@ -111,7 +111,7 @@ AUC_Pick <- function(y_vec, x_mat, solution_path, real_logit_vec){
     res <- rep(0, lam_len)
     for(i in 1 : lam_len){
         logit_vec <- x_mat %*% c(solution_path$delta_path[i, ], solution_path$eta_stack_path[i, ])
-        auc_res <- auc(y_vec ~ as.vector(logit_vec), quiet = TRUE)
+        auc_res <- pROC::auc(y_vec ~ as.vector(logit_vec), quiet = TRUE)
         res[i] <- auc_res
     }
     idx <- which.max(res)
@@ -279,7 +279,7 @@ CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_
             colsum_loglik <- colsum_loglik[!is.na(colsum_loglik)]
 
             if(length(colsum_loglik) >= 2){
-                loglik_sd <- sd(colsum_loglik)
+                loglik_sd <- stats::sd(colsum_loglik)
             }else{
                 loglik_sd <- 0
             }
@@ -327,7 +327,7 @@ CV_Pick <- function(y_vec, x_mat, cv_solution_path, real_logit_vec, kn, complex_
                 colsum_loglik <- colsum_loglik[!is.na(colsum_loglik)]
 
                 if(length(colsum_loglik) >= 2){
-                    loglik_sd <- sd(colsum_loglik)
+                    loglik_sd <- stats::sd(colsum_loglik)
                 }else{
                     loglik_sd <- 0
                 }
@@ -392,7 +392,7 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
     rownames(res) <- c("mean", "sd")
 
     res["mean", "MSE_Logit"] <- mean(logit_mse_vec)
-    res["sd", "MSE_Logit"] <- sd(logit_mse_vec)
+    res["sd", "MSE_Logit"] <- stats::sd(logit_mse_vec)
 
     delta_mse <- apply(delta_mat, 1, FUN = function(x, vec0){
         return(mean((x - vec0) ^ 2))
@@ -401,9 +401,9 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
         return(mean((x - vec0) ^ 2))
     }, vec0 = eta_vec0)
     res["mean", "MSE_Delta"] <- mean(delta_mse)
-    res["sd", "MSE_Delta"] <- sd(delta_mse)
+    res["sd", "MSE_Delta"] <- stats::sd(delta_mse)
     res["mean", "MSE_Eta"] <- mean(eta_mse)
-    res["sd", "MSE_Eta"] <- sd(eta_mse)
+    res["sd", "MSE_Eta"] <- stats::sd(eta_mse)
 
     eta_mat0 <- matrix(eta_vec0, nrow = k_n)
     p <- ncol(eta_mat0)
@@ -431,11 +431,11 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
         return(fdr_res)
     }, k_n = k_n, pos_id_vec = pos_id_vec, neg_id_vec = neg_id_vec)
     res["mean", "FP"] <- mean(fp_vec)
-    res["sd", "FP"] <- sd(fp_vec)
+    res["sd", "FP"] <- stats::sd(fp_vec)
     res["mean", "FN"] <- mean(fn_vec)
-    res["sd", "FN"] <- sd(fn_vec)
+    res["sd", "FN"] <- stats::sd(fn_vec)
     res["mean", "FDR"] <- mean(fdr_vec)
-    res["sd", "FDR"] <- sd(fdr_vec)
+    res["sd", "FDR"] <- stats::sd(fdr_vec)
 
     if(!is.null(additional_info)){
         warning("Currently, computation with `additional_info` is problematic, use carefully!")
@@ -463,13 +463,13 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
             auc_test <- pROC::auc(y_vec_test ~ as.vector(logit_test))
             roc_test <- attr(auc_test, "roc")
 
-            res_add[idx, "train_cor_p"] <- cor(y_vec_train, logit_train, method = "pearson")
-            res_add[idx, "train_cor_s"] <- cor(y_vec_train, logit_train, method = "spearman")
+            res_add[idx, "train_cor_p"] <- stats::cor(y_vec_train, logit_train, method = "pearson")
+            res_add[idx, "train_cor_s"] <- stats::cor(y_vec_train, logit_train, method = "spearman")
             res_add[idx, "train_auc"] <- auc_train
             res_add[idx, "train_roc"] <- max(roc_train$sensitivities + roc_train$specificities)
 
-            res_add[idx, "test_cor_p"] <- cor(y_vec_test, logit_test, method = "pearson")
-            res_add[idx, "test_cor_p"] <- cor(y_vec_test, logit_test, method = "pearson")
+            res_add[idx, "test_cor_p"] <- stats::cor(y_vec_test, logit_test, method = "pearson")
+            res_add[idx, "test_cor_p"] <- stats::cor(y_vec_test, logit_test, method = "pearson")
             res_add[idx, "test_auc"] <- auc_test
             res_add[idx, "test_roc"] <- max(roc_test$sensitivities + roc_test$specificities)
         }
@@ -479,7 +479,7 @@ Summary_Simulation_Res <- function(delta_mat, eta_mat, logit_mse_vec, delta0, et
                                               c("train_cor_p", "train_cor_s", "train_auc", "train_roc",
                                                 "test_cor_p", "test_cor_s", "test_auc", "test_roc")))
         sum_res_add["mean", ] <- apply(res_add, 2, mean)
-        sum_res_add["sd", ] <- apply(res_add, 2, sd)
+        sum_res_add["sd", ] <- apply(res_add, 2, stats::sd)
 
         res <- cbind(res, sum_res_add)
 
@@ -701,7 +701,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
         if(length(active_idx) == 0){
             # NO active functional covariates
             # fit the model
-            glmfit <- glm(yf_vec ~ demo_x - 1, family = binomial)
+            glmfit <- stats::glm(yf_vec ~ demo_x - 1,
+                                 family = stats::binomial)
 
             # save the results
             delta_vec <- glmfit$coefficients
@@ -732,7 +733,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
             if(length(active_idx) == 1){
                 warning("Only 1 active group of covariates is found in `eta_stack_vec`! An ordinary glm fit is performed!")
                 # fit the model
-                glmfit <- glm(yf_vec ~ demo_x + x_active_mat - 1, family = binomial)
+                glmfit <- stats::glm(yf_vec ~ demo_x + x_active_mat - 1,
+                                     family = stats::binomial)
 
                 # save the results
                 delta_vec <- glmfit$coefficients[1 : h]
@@ -765,7 +767,8 @@ Logistic_FAR_Path_Further_Improve <- function(x_mat, y_vec, h, k_n, p,
                 x_adj_mat <- matrix(as.vector(x_adj_mat) - as.vector(x_ref_mat), nrow = n)
 
                 # fit the model
-                glmfit <- glm(yf_vec ~ demo_x + x_adj_mat - 1, family = binomial)
+                glmfit <- stats::glm(yf_vec ~ demo_x + x_adj_mat - 1,
+                                     family = stats::binomial)
 
                 # save the results
                 delta_vec <- glmfit$coefficients[1 : h]
@@ -1061,7 +1064,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
         mu1_vec <- mu1_vec_init
 
         glmdummyfit <- lme4::glmer(
-            as.formula(
+            stats::as.formula(
                 paste0(
                     "yf_vec ~ 1 + (",
                     cols_for_ref, " | ", "subj_vec_fct)")),
@@ -1075,8 +1078,8 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
             tibble::rownames_to_column(var = "subj_vec_fct") %>%
             tibble::remove_rownames() %>%
             dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                          .before = everything()) %>%
-            mutate(across(-subj_vec_fct, function(invec){0}))
+                          .before = tidyselect::everything()) %>%
+            dplyr::mutate(dplyr::across(-subj_vec_fct, function(invec){0}))
 
         if(length(active_idx) == 0){
             # NO active functional covariates
@@ -1084,7 +1087,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
             ref_form_str <- paste0(
                 "yf_vec ~ demo_x - 1 + (",
                 cols_for_ref, " | ", "subj_vec_fct)")
-            try_res <- try(glmfit <- lme4::glmer(as.formula(ref_form_str),
+            try_res <- try(glmfit <- lme4::glmer(stats::as.formula(ref_form_str),
                                       family = "binomial",
                                       data = rand_eff_df,
                                       control = custom_glmer_control),
@@ -1101,10 +1104,10 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     tibble::rownames_to_column(var = "subj_vec_fct") %>%
                     tibble::remove_rownames() %>%
                     dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                                  .before = everything())
+                                  .before = tidyselect::everything())
             }else{
                 # fit the model
-                glmfit <- glm(yf_vec ~ demo_x - 1, family = binomial)
+                glmfit <- stats::glm(yf_vec ~ demo_x - 1, family = stats::binomial)
 
                 # save the results
                 delta_vec <- glmfit$coefficients
@@ -1147,7 +1150,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     "yf_vec ~ demo_x + x_active_mat - 1 + (",
                     cols_for_ref, " | ", "subj_vec_fct)")
                 try_res <- try(
-                    glmfit <- lme4::glmer(as.formula(ref_form_str),
+                    glmfit <- lme4::glmer(stats::as.formula(ref_form_str),
                                           family = "binomial",
                                           data = rand_eff_df,
                                           custom_glmer_control),
@@ -1184,10 +1187,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                         tibble::rownames_to_column(var = "subj_vec_fct") %>%
                         tibble::remove_rownames() %>%
                         dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                                      .before = everything())
+                                      .before = tidyselect::everything())
                 }else{
                     # fit the model
-                    glmfit <- glm(yf_vec ~ demo_x + x_active_mat - 1, family = binomial)
+                    glmfit <- stats::glm(yf_vec ~ demo_x + x_active_mat - 1,
+                                         family = stats::binomial)
 
                     # save the results
                     delta_vec <- glmfit$coefficients[1 : h]
@@ -1234,7 +1238,7 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     cols_for_ref, " | ", "subj_vec_fct)")
 
                 try_res <- try(
-                    glmfit <- lme4::glmer(as.formula(ref_form_str),
+                    glmfit <- lme4::glmer(stats::as.formula(ref_form_str),
                                           family = "binomial",
                                           data = rand_eff_df,
                                           custom_glmer_control),
@@ -1275,10 +1279,11 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                         tibble::rownames_to_column(var = "subj_vec_fct") %>%
                         tibble::remove_rownames() %>%
                         dplyr::mutate(subj_vec_fct = as.factor(subj_vec_fct),
-                                      .before = everything())
+                                      .before = tidyselect::everything())
                 }else{
                     # fit the model
-                    glmfit <- glm(yf_vec ~ demo_x + x_adj_mat - 1, family = binomial)
+                    glmfit <- stats::glm(yf_vec ~ demo_x + x_adj_mat - 1,
+                                         family = stats::binomial)
 
                     # save the results
                     delta_vec <- glmfit$coefficients[1 : h]
@@ -1601,11 +1606,11 @@ NBZI_Summary_Simulation <- function(adjust_p_mat, alpha_level, eta_vec0, k_n){
                      alpha_level = alpha_level, pos_id_vec = pos_id_vec, neg_id_vec = neg_id_vec)
 
     res["mean", "FP"] <- mean(fp_vec)
-    res["sd", "FP"] <- sd(fp_vec)
+    res["sd", "FP"] <- stats::sd(fp_vec)
     res["mean", "FN"] <- mean(fn_vec)
-    res["sd", "FN"] <- sd(fn_vec)
+    res["sd", "FN"] <- stats::sd(fn_vec)
     res["mean", "FDR"] <- mean(fdr_vec)
-    res["sd", "FDR"] <- sd(fdr_vec)
+    res["sd", "FDR"] <- stats::sd(fdr_vec)
     return(res)
 }
 
@@ -1719,7 +1724,7 @@ Gen_Microbiome_Data <- function(n, n_control_proportioin, n_control, t_num, p = 
             res_time <- res_active[[1]]$df$time[1 : t_num]
         }else{
             print("There are no active features to be generated!")
-            res_active <- null
+            res_active <- NULL
         }
 
         if(p_inactive > 0){
@@ -1760,7 +1765,7 @@ Gen_Microbiome_Data <- function(n, n_control_proportioin, n_control, t_num, p = 
             res_time <- res_inactive[[1]]$df$time[1 : t_num]
         }else{
             print("There are no inactive features to be generated!")
-            res_inactive <- null
+            res_inactive <- NULL
         }
 
         # combine active and inactive results

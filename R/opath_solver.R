@@ -246,7 +246,8 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
             lambda_seq <- exp(seq(from = log(lam_max), to = log(lam_min), length.out = lambda_length))
 
             print("Overwrite and use default value for delta_init, eta_init and mu1_init!")
-            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            logit_fit <- stats::glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1,
+                                    family = stats::binomial)
             delta_init <- logit_fit$coefficients
             eta_stack_init <- rep(0, length(svd_vec_stack))
             mu1_init <- rep(0, kn)
@@ -260,7 +261,8 @@ Logistic_FAR_OPath <- function(y_vec, x_mat, h, kn, p,
         # check initial values for the algorithm
         if(missing(delta_init)){
             print("delta_init missing, use default settings")
-            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            logit_fit <- stats::glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1,
+                                    family = stats::binomial)
             delta_init <- logit_fit$coefficients
         }else{
 
@@ -593,7 +595,8 @@ Logistic_FAR_CV_opath <- function(y_vec, x_mat, h, kn, p,
 
             # default initial values for lambda_max
             print("Using default lambda sequences and initial values for the path searching!")
-            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            logit_fit <- stats::glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1,
+                                    family = stats::binomial)
             delta_init <- logit_fit$coefficients
             eta_stack_init <- rep(0, p * kn)
             mu_1_init <- rep(0, kn)
@@ -788,7 +791,8 @@ Get_Lambda_Max <- function(y_vec, x_mat, h, kn, p, a, bj_vec, cj_vec, start_id_v
     #
     # find lambda_max
     # conduct the ordinary logistic regressoin
-    logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+    logit_fit <- stats::glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1,
+                            family = stats::binomial)
     pi_fit <- exp(logit_fit$fitted.values) / (1 + exp(logit_fit$fitted.values))
     alpha_vec <- rep(0, p)
     for(i in 1 : p){
@@ -1061,7 +1065,8 @@ Logistic_FAR_CV_opath_par <- function(y_vec, x_mat, h, kn, p,
 
             # default initial values for lambda_max
             print("Using default lambda sequences and initial values for the path searching!")
-            logit_fit <- glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1, family = binomial)
+            logit_fit <- stats::glm(y_vec ~ x_mat[, 1 : h, drop = FALSE] - 1,
+                                    family = stats::binomial)
             delta_init <- logit_fit$coefficients
             eta_stack_init <- rep(0, p * kn)
             mu_1_init <- rep(0, kn)
