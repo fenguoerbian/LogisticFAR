@@ -1,6 +1,6 @@
 Package: LogisticFAR
 Title: Logistic Functional Additive Regression with log-contrast constrain
-Version: 0.0.0.9014
+Version: 0.0.0.9015
 Authors@R: 
     person(given = "Chao",
            family = "Cheng",
@@ -16,6 +16,7 @@ RoxygenNote: 7.3.2
 LinkingTo: 
     Rcpp,
     RcppEigen
+biocViews:
 Imports: 
     Rcpp,
     RcppEigen,
