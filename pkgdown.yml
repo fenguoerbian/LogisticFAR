@@ -1,9 +1,9 @@
 pandoc: 3.1.11
-pkgdown: 2.1.0
+pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
   Oracle_Estimator: Oracle_Estimator.html
-last_built: 2024-09-11T06:28Z
+last_built: 2024-09-27T09:24Z
 urls:
   reference: https://fenguoerbian.github.io/LogisticFAR/reference
   article: https://fenguoerbian.github.io/LogisticFAR/articles
