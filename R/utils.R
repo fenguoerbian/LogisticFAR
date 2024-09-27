@@ -937,8 +937,8 @@ Replace_Fixef_NA <- function(in_model){
 Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_n, p,
                                                 delta_vec_init, eta_stack_init, mu1_vec_init, mu2, a = 1, lam = 0.1,
                                                 weight_vec = 1,  logit_weight_vec = 1, weight_already_combine = FALSE,
-                                                tol = 10^(-5), max_iter = 1000, fast_glm = TRUE,
-                                                return_lmermod = FALSE){
+                                                tol = 10^(-5), max_iter = 1000, fast_glm = TRUE, 
+                                                return_lmermod = FALSE, save_fixef_matrix = FALSE){
     # Post selection estimation to further improve the estimation from a solution path
     # Args: x_mat
     #       y_vec
@@ -1121,6 +1121,10 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 delta_vec[is.na(delta_vec)] <- 0
             }
 
+            if(save_fixef_matrix){
+                fixef_demox <- demo_x
+                fixef_fx <- NA
+            }
 
 
 
@@ -1222,6 +1226,10 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     rand_eff_est <- dummy_rand_eff_est
                 }
 
+                if(save_fixef_matrix){
+                    fixef_demox <- demo_x
+                    fixef_fx <- x_active_mat
+                }
 
 
 
@@ -1318,6 +1326,12 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                     rand_eff_est <- dummy_rand_eff_est
                 }
 
+                if(save_fixef_matrix){
+                    fixef_demox <- demo_x
+                    fixef_fx <- x_adj_mat
+                }
+
+
 
             }
         }
@@ -1334,11 +1348,18 @@ Logistic_FARMM_Path_Further_Improve <- function(x_mat, y_vec, rand_eff_df, h, k_
                 converge = converge,
                 rand_eff_std = rand_eff_std,
                 rand_eff_est = rand_eff_est)
-
+                
     if(return_lmermod){
         res$glmfit = glmfit
     }
-
+    
+    if(save_fixef_matrix){
+        res$fixef_mat_list <- list(
+            demox = fixef_demox,
+            fx = fixef_fx
+        )
+    }
+    
     return(res)
 }
 
